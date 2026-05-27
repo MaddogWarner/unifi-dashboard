@@ -1,6 +1,9 @@
-FROM instrumentisto/nmap:latest
+FROM python:3.12-slim
 
-RUN apk add --no-cache python3 py3-pip
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nmap \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY pyproject.toml .
 RUN pip install --no-cache-dir fastapi uvicorn pydantic

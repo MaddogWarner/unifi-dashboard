@@ -47,13 +47,22 @@ def _client(api_key: str, verify: bool) -> httpx.AsyncClient:
     )
 
 
+def _raise_with_body(exc: httpx.HTTPStatusError) -> None:
+    body = exc.response.text[:500].strip()
+    msg = str(exc) + (f" — body: {body}" if body else "")
+    raise httpx.HTTPStatusError(msg, request=exc.request, response=exc.response) from exc
+
+
 async def _get(url: str, api_key: str, verify: bool) -> Any:
     async with _client(api_key, verify) as client:
         response = await client.get(url)
         if response.status_code == 429:
             await asyncio.sleep(float(response.headers.get("Retry-After", "5")))
             response = await client.get(url)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            _raise_with_body(exc)
         return response.json()
 
 
@@ -63,7 +72,10 @@ async def _request(method: str, url: str, api_key: str, verify: bool, payload: d
         if response.status_code == 429:
             await asyncio.sleep(float(response.headers.get("Retry-After", "5")))
             response = await client.request(method, url, json=payload)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            _raise_with_body(exc)
         if response.content:
             return response.json()
         return {}
@@ -114,8 +126,23 @@ async def get_firewall_groups() -> list[dict]:
 
 async def create_firewall_group(payload: dict) -> dict:
     base_v1, _base_v2, api_key, verify = await _load_config()
-    data = await _request("POST", f"{base_v1}/rest/firewallgroup", api_key, verify, payload)
-    return _first_item(data)
+    try:
+        data = await _request("POST", f"{base_v1}/rest/firewallgroup", api_key, verify, payload)
+        return _first_item(data)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 400:
+            raise
+        # Group may already exist in UniFi from a prior failed attempt; reuse it if so.
+        groups = await get_firewall_groups()
+        existing = next((g for g in groups if g.get("name") == payload.get("name")), None)
+        if existing:
+            log.warning(
+                "Firewall group '%s' already exists in UniFi (id=%s); reusing",
+                payload.get("name"),
+                existing.get("_id"),
+            )
+            return existing
+        raise
 
 
 async def update_firewall_group(group_id: str, payload: dict) -> dict:

@@ -2,6 +2,17 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 7)
+
+### Fixed
+
+- Fixed opaque `400` errors on firewall group creation by including the UniFi response body in all `httpx.HTTPStatusError` exceptions. Added `_raise_with_body()` helper applied to both `_get()` and `_request()` in `unifi_client.py`, so the exact UniFi rejection reason is now visible in the UI "failed" error field and API logs rather than just the status code and URL.
+- Fixed `create_firewall_group()` failing with 400 when a same-named group already exists in UniFi from a prior failed approval attempt. On a 400 response the function now GETs the full group list, finds the orphaned group by name, logs a warning, and returns it so policy creation can proceed. The 400 is still re-raised if no matching group is found, now with the response body attached.
+
+### Validation
+
+- Python syntax validation passed for `services/api/app/services/unifi_client.py`.
+
 ## Unreleased - 2026-05-28 (session 6)
 
 ### Fixed

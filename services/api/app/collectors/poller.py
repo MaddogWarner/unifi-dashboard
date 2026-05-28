@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -17,9 +18,138 @@ from app.services import unifi_client
 
 log = logging.getLogger(__name__)
 
+IDS_ENABLE_FIELDS = (
+    "enabled",
+    "ips_enabled",
+    "ids_enabled",
+    "intrusion_prevention_enabled",
+    "intrusion_prevention",
+    "threat_management_enabled",
+    "threat_management",
+)
+IDS_MODE_FIELDS = (
+    "mode",
+    "ids_mode",
+    "detection_mode",
+    "intrusion_prevention_mode",
+    "threat_management_mode",
+)
+IDS_PREVENTION_VALUES = {
+    "ips",
+    "prevention",
+    "block",
+    "notify_and_block",
+    "notify-and-block",
+    "notify and block",
+}
+IDS_DETECTION_VALUES = {"ids", "detection", "notify", "alert"}
+TRUTHY_VALUES = {"1", "true", "yes", "on", "enabled", "enable"}
+FALSY_VALUES = {"0", "false", "no", "off", "disabled", "disable", ""}
+
 
 def _json(data: Any) -> str:
     return json.dumps(data, sort_keys=True, default=str)
+
+
+def _normalise_token(value: Any) -> str:
+    return str(value).strip().lower().replace(" ", "_")
+
+
+def _normalise_key(value: str) -> str:
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
+    return value.replace("-", "_").lower()
+
+
+def _is_truthy(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if value is None:
+        return None
+    normalised = _normalise_token(value)
+    if normalised in TRUTHY_VALUES:
+        return True
+    if normalised in FALSY_VALUES:
+        return False
+    return None
+
+
+def _find_values(data: Any, keys: set[str]) -> list[Any]:
+    values = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if _normalise_key(key) in keys:
+                values.append(value)
+            values.extend(_find_values(value, keys))
+    elif isinstance(data, list):
+        for item in data:
+            values.extend(_find_values(item, keys))
+    return values
+
+
+def _has_configured_collection(data: Any) -> bool:
+    keys = {
+        "categories",
+        "enabled_categories",
+        "active_categories",
+        "active_detections",
+        "detections",
+        "networks",
+        "network_ids",
+        "networkconf_ids",
+        "selected_networks",
+    }
+    return any(bool(value) for value in _find_values(data, keys))
+
+
+def _normalise_ids_mode(config: dict) -> str | None:
+    mode_values = _find_values(config, {_normalise_key(key) for key in IDS_MODE_FIELDS})
+    for value in mode_values:
+        token = _normalise_token(value)
+        if token in IDS_PREVENTION_VALUES:
+            return "ips"
+    for value in mode_values:
+        token = _normalise_token(value)
+        if token in IDS_DETECTION_VALUES:
+            return "ids"
+    for value in mode_values:
+        if value:
+            return str(value)
+    return None
+
+
+def normalise_ids_config(config: dict) -> dict[str, Any]:
+    mode = _normalise_ids_mode(config)
+    enabled_values = _find_values(config, {_normalise_key(key) for key in IDS_ENABLE_FIELDS})
+    explicit_enabled = next(
+        (state for state in (_is_truthy(value) for value in enabled_values) if state is not None),
+        None,
+    )
+    sensitivity = next(
+        (str(value) for value in _find_values(config, {"sensitivity"}) if value),
+        None,
+    )
+    categories = next(
+        (
+            value
+            for value in _find_values(
+                config,
+                {"categories", "enabled_categories", "active_categories"},
+            )
+            if isinstance(value, list)
+        ),
+        [],
+    )
+    configured = bool(mode or sensitivity or categories or _has_configured_collection(config))
+    enabled = bool(explicit_enabled if explicit_enabled is not None else configured)
+    return {
+        "enabled": enabled,
+        "mode": mode if enabled else None,
+        "categories": categories,
+        "sensitivity": sensitivity,
+        "raw_json": _json(config),
+    }
 
 
 async def _upsert_policies(session: AsyncSession, policies: list[dict]) -> None:
@@ -97,15 +227,12 @@ async def _upsert_ids_config(session: AsyncSession, config: dict) -> None:
         existing = IdsConfig(id=1)
         session.add(existing)
     log.info("IDS config from UniFi: %s", config)
-    existing.mode = config.get("mode") or config.get("ids_mode") or None
-    existing.enabled = bool(
-        config.get("enabled")
-        or config.get("ips_enabled")
-        or existing.mode
-        or config.get("sensitivity")
-    )
-    existing.categories = _json(config.get("categories", []))
-    existing.sensitivity = config.get("sensitivity")
+    normalised = normalise_ids_config(config)
+    existing.mode = normalised["mode"]
+    existing.enabled = normalised["enabled"]
+    existing.categories = _json(normalised["categories"])
+    existing.sensitivity = normalised["sensitivity"]
+    existing.raw_json = normalised["raw_json"]
     existing.synced_at = now
     await session.execute(delete(IdsConfig).where(IdsConfig.id != existing.id))
 

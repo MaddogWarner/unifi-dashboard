@@ -26,7 +26,8 @@ class IdsConfig(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    mode: Mapped[str | None] = mapped_column(String(16))
+    mode: Mapped[str | None] = mapped_column(String(32))
     categories: Mapped[str | None] = mapped_column(Text)
     sensitivity: Mapped[str | None] = mapped_column(String(16))
+    raw_json: Mapped[str | None] = mapped_column(Text)
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

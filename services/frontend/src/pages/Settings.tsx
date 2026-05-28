@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
-import { ActionToast } from "../components/ActionToast";
+import { useActionToast } from "../components/ActionToast";
 import { getSettings, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
 
 const ruleSets = [
@@ -30,44 +30,44 @@ const defaults: Record<string, string> = {
 
 export function Settings() {
   const queryClient = useQueryClient();
+  const { clearToast, showSuccess } = useActionToast();
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
   const [draft, setDraft] = useState(defaults);
   const [showKey, setShowKey] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: updateSettings,
-    onMutate: () => setToastMessage(null),
+    onMutate: clearToast,
     onSuccess: (data) => {
       setDraft({ ...defaults, ...data });
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       queryClient.invalidateQueries({ queryKey: ["threatfeed-status"] });
-      setToastMessage("Save successful");
+      showSuccess("Save successful");
     },
-    onError: () => setToastMessage(null)
+    onError: clearToast
   });
   const cveRefresh = useMutation({
     mutationFn: refreshCVE,
-    onMutate: () => setToastMessage(null),
+    onMutate: clearToast,
     onSuccess: () => {
       setRefreshError(null);
-      setToastMessage("Refresh successful");
+      showSuccess("Refresh successful");
     },
     onError: (err) => {
-      setToastMessage(null);
+      clearToast();
       setRefreshError(errorMessage(err));
     }
   });
   const feedRefresh = useMutation({
     mutationFn: refreshThreatFeed,
-    onMutate: () => setToastMessage(null),
+    onMutate: clearToast,
     onSuccess: () => {
       setRefreshError(null);
-      setToastMessage("Refresh successful");
+      showSuccess("Refresh successful");
       queryClient.invalidateQueries({ queryKey: ["threatfeed-status"] });
     },
     onError: (err) => {
-      setToastMessage(null);
+      clearToast();
       setRefreshError(errorMessage(err));
     }
   });
@@ -85,7 +85,6 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
-      <ActionToast message={toastMessage} onDismiss={() => setToastMessage(null)} />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-950">Settings</h1>

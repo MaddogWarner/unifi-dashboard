@@ -24,6 +24,7 @@ from app.services import unifi_client
 log = logging.getLogger(__name__)
 
 CHUNK_SIZE = 500
+THREAT_FEED_RULE_INDEX_START = 20000
 VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
 
 
@@ -39,6 +40,10 @@ def _json(data: Any) -> str:
 
 def _hash_payload(data: Any) -> str:
     return hashlib.sha256(_json(data).encode()).hexdigest()
+
+
+def _is_rule_index_collision(exc: Exception) -> bool:
+    return isinstance(exc, httpx.HTTPStatusError) and "FirewallRuleIndexExisted" in str(exc)
 
 
 def validate_outbound_url(url: str) -> None:
@@ -147,12 +152,45 @@ def _rule_payloads(ruleset: str, idx: int, chunk: list[str]) -> tuple[dict, dict
         "action": "drop",
         "enabled": True,
         "ruleset": ruleset,
-        "rule_index": 20000,
+        "rule_index": THREAT_FEED_RULE_INDEX_START,
         "src_firewallgroup_ids": [],
         "protocol": "all",
         "logging": True,
     }
     return group_payload, rule_payload
+
+
+async def _next_rule_index(ruleset: str, start: int = THREAT_FEED_RULE_INDEX_START) -> int:
+    used_indexes = set()
+    for rule in await unifi_client.get_firewall_rules():
+        if rule.get("ruleset") != ruleset:
+            continue
+        try:
+            used_indexes.add(int(rule.get("rule_index")))
+        except (TypeError, ValueError):
+            continue
+    candidate = start
+    while candidate in used_indexes:
+        candidate += 1
+    return candidate
+
+
+async def _create_firewall_rule_with_available_index(rule_payload: dict, group_id: str) -> dict:
+    payload = {
+        **rule_payload,
+        "rule_index": await _next_rule_index(str(rule_payload["ruleset"]), int(rule_payload["rule_index"])),
+        "src_firewallgroup_ids": [group_id],
+    }
+    try:
+        return await unifi_client.create_firewall_rule(payload)
+    except Exception as exc:
+        if not _is_rule_index_collision(exc):
+            raise
+        retry_payload = {
+            **payload,
+            "rule_index": await _next_rule_index(str(rule_payload["ruleset"]), int(payload["rule_index"]) + 1),
+        }
+        return await unifi_client.create_firewall_rule(retry_payload)
 
 
 async def _queue_pending_rule(
@@ -276,7 +314,7 @@ async def _apply_change(
     group_id = group.get("_id") or group.get("id")
     if not group_id:
         raise ValueError("UniFi did not return a firewall group ID")
-    rule = await unifi_client.create_firewall_rule({**rule_payload, "src_firewallgroup_ids": [group_id]})
+    rule = await _create_firewall_rule_with_available_index(rule_payload, group_id)
     rule_id = rule.get("_id") or rule.get("id")
     if not rule_id:
         raise ValueError("UniFi did not return a firewall rule ID")

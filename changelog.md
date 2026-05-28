@@ -2,6 +2,34 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 11)
+
+### Fixed
+
+- Fixed IDS/IPS assessment false negatives for UDR 5G Max / UniFi Network 10 style payloads. IDS config polling now normalises newer intrusion-prevention and threat-management field names in snake_case, kebab-case, and camelCase, including `Notify and Block` as IPS prevention mode.
+- Added fallback IDS/IPS enablement detection from selected networks, active detections, category data, and legacy sensitivity fields when UniFi omits an explicit enabled boolean.
+
+### Changed
+
+- Added raw IDS config storage on `ids_config.raw_json` for future diagnostics and widened `ids_config.mode` to 32 characters.
+- Added focused IDS normalisation tests covering UDR-style prevention, detection-only, disabled, secondary evidence, legacy payloads, and camelCase field names.
+
+### Validation
+
+- Python syntax validation passed for poller, assessment routers/services, network model, IDS migration, and IDS normalisation tests.
+- Pytest execution could not run in this local environment because `pytest` and API dependencies are not installed for the available Python interpreter.
+
+## Unreleased - 2026-05-28 (session 10)
+
+### Fixed
+
+- Fixed threat feed firewall rule approval failing with UniFi `api.err.FirewallRuleIndexExisted`. Generated v1 firewall rules now allocate the next available `rule_index` per ruleset starting at `20000` instead of reusing the same fixed index for every generated rule.
+- Added a one-time defensive retry for firewall rule creation if UniFi still reports a rule-index collision after the first allocation, refreshing the live ruleset index list before retrying.
+
+### Validation
+
+- Python syntax validation passed for `collectors/threat_feed_collector.py`, `services/unifi_client.py`.
+
 ## Unreleased - 2026-05-28 (session 9)
 
 ### Added
@@ -14,6 +42,7 @@ All notable project changes are recorded here.
 - Settings CVE and threat feed `Run Now` actions now show `Refresh successful` only after the refresh API call succeeds.
 - Threat Feeds page `Refresh` now shows `Refresh successful` only after the refresh API call succeeds.
 - Settings refresh failures now render a visible inline error message instead of failing silently.
+- Moved success toast rendering to an app-level provider that portals directly to `document.body`, making overlays visible across all routes and independent of page layout.
 
 ### Validation
 

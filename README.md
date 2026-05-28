@@ -324,6 +324,8 @@ Contributions are welcome. Please open an issue before submitting a pull request
 ### Contributors
 
 - [MadDogWarner](https://github.com/MadDogWarner) — project author
+- [Claude](https://claude.ai) (Anthropic) — architecture, code review, and implementation guidance
+- [Codex](https://openai.com/codex) (OpenAI) — primary code generation
 
 ### Guidelines
 

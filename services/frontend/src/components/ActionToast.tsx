@@ -1,38 +1,64 @@
-import { ReactNode, createContext, useCallback, useContext, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, CircleAlert, X } from "lucide-react";
 
-type ActionToastContextValue = {
-  showSuccess: (message: string) => void;
-  clearToast: () => void;
+type ToastTone = "success" | "error";
+
+type ToastEventDetail = {
+  message: string;
+  tone: ToastTone;
 };
 
-const ActionToastContext = createContext<ActionToastContextValue | null>(null);
+type ToastState = ToastEventDetail & {
+  id: number;
+};
+
+const TOAST_EVENT = "unifi-dashboard:toast";
+const CLEAR_TOAST_EVENT = "unifi-dashboard:clear-toast";
+
+export function showSuccessToast(message: string) {
+  dispatchToast({ message, tone: "success" });
+}
+
+export function showErrorToast(message: string) {
+  dispatchToast({ message, tone: "error" });
+}
+
+export function clearActionToast() {
+  window.dispatchEvent(new CustomEvent(CLEAR_TOAST_EVENT));
+}
+
+function dispatchToast(detail: ToastEventDetail) {
+  window.dispatchEvent(new CustomEvent<ToastEventDetail>(TOAST_EVENT, { detail }));
+}
 
 export function ActionToastProvider({ children }: { children: ReactNode }) {
-  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
-
+  const [toast, setToast] = useState<ToastState | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
-  const showSuccess = useCallback((message: string) => {
-    setToast({ id: Date.now(), message });
-  }, []);
+
+  useEffect(() => {
+    const show = (event: Event) => {
+      const detail = (event as CustomEvent<ToastEventDetail>).detail;
+      setToast({ ...detail, id: Date.now() });
+    };
+    window.addEventListener(TOAST_EVENT, show);
+    window.addEventListener(CLEAR_TOAST_EVENT, clearToast);
+    return () => {
+      window.removeEventListener(TOAST_EVENT, show);
+      window.removeEventListener(CLEAR_TOAST_EVENT, clearToast);
+    };
+  }, [clearToast]);
 
   return (
-    <ActionToastContext.Provider value={{ showSuccess, clearToast }}>
+    <>
       {children}
       <ActionToast toast={toast} onDismiss={clearToast} />
-    </ActionToastContext.Provider>
+    </>
   );
 }
 
-export function useActionToast() {
-  const context = useContext(ActionToastContext);
-  if (!context) throw new Error("useActionToast must be used within ActionToastProvider");
-  return context;
-}
-
 type ActionToastProps = {
-  toast: { id: number; message: string } | null;
+  toast: ToastState | null;
   onDismiss: () => void;
 };
 
@@ -45,10 +71,24 @@ function ActionToast({ toast, onDismiss }: ActionToastProps) {
 
   if (!toast) return null;
 
+  const isSuccess = toast.tone === "success";
+  const Icon = isSuccess ? CheckCircle2 : CircleAlert;
+  const toneClass = isSuccess
+    ? "border-emerald-200 text-slate-800"
+    : "border-rose-200 text-rose-800";
+  const iconClass = isSuccess ? "text-emerald-700" : "text-rose-700";
+
   return createPortal(
-    <div className="pointer-events-none fixed right-4 top-4 z-[100] flex max-w-sm justify-end" aria-live="polite">
-      <div className="pointer-events-auto flex items-start gap-3 rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-lg">
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed right-4 top-4 z-[1000] flex max-w-sm justify-end"
+      data-testid="action-toast"
+      data-tone={toast.tone}
+    >
+      <div
+        className={`pointer-events-auto flex items-start gap-3 rounded-md border bg-white px-4 py-3 text-sm shadow-lg ${toneClass}`}
+      >
+        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${iconClass}`} />
         <span className="font-medium">{toast.message}</span>
         <button
           type="button"

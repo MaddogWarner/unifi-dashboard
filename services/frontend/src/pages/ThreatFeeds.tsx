@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, ShieldBan, Trash2, X } from "lucide-react";
-import { useActionToast } from "../components/ActionToast";
+import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
 import {
   addThreatFeedSource,
   approveThreatFeedRule,
@@ -17,7 +17,6 @@ import {
 
 export function ThreatFeeds() {
   const queryClient = useQueryClient();
-  const { clearToast, showSuccess } = useActionToast();
   const [cidrSearch, setCidrSearch] = useState("");
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -53,39 +52,44 @@ export function ThreatFeeds() {
     onSuccess: invalidate
   });
   const removeFeed = useMutation({ mutationFn: deleteThreatFeedSource, onSuccess: invalidate });
-  const onActionError = (err: unknown) =>
-    setActionError(err instanceof Error ? err.message : String(err));
+  const onActionError = (err: unknown) => {
+    const message = errorMessage(err);
+    setActionError(message);
+    showErrorToast(message);
+  };
   const onActionSuccess = () => { setActionError(null); invalidate(); };
 
   const refresh = useMutation({
     mutationFn: refreshThreatFeed,
-    onMutate: clearToast,
+    onMutate: clearActionToast,
     onSuccess: () => {
       onActionSuccess();
-      showSuccess("Refresh successful");
+      showSuccessToast("Refresh successful");
     },
-    onError: (err) => {
-      clearToast();
-      onActionError(err);
-    }
+    onError: onActionError
   });
-  const onRuleActionSuccess = (data: { status: string; error: string | null }) => {
+  const onRuleActionSuccess = (data: { status: string; error: string | null }, successMessage: string) => {
     invalidate();
     if (data.status === "failed") {
-      setActionError(data.error ?? "Rule failed to apply to UniFi");
+      const message = data.error ?? "Rule failed to apply to UniFi";
+      setActionError(message);
+      showErrorToast(message);
     } else {
       setActionError(null);
+      showSuccessToast(successMessage);
     }
   };
 
   const approve = useMutation({
     mutationFn: approveThreatFeedRule,
-    onSuccess: onRuleActionSuccess,
+    onMutate: clearActionToast,
+    onSuccess: (data) => onRuleActionSuccess(data, "Rule applied successfully"),
     onError: onActionError
   });
   const reject = useMutation({
     mutationFn: rejectThreatFeedRule,
-    onSuccess: onRuleActionSuccess,
+    onMutate: clearActionToast,
+    onSuccess: (data) => onRuleActionSuccess(data, "Rule rejected successfully"),
     onError: onActionError
   });
 
@@ -303,6 +307,10 @@ export function ThreatFeeds() {
 
 function formatDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString() : "-";
+}
+
+function errorMessage(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
 }
 
 function statusClass(status: string) {

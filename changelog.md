@@ -2,6 +2,24 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 12)
+
+### Fixed
+
+- Refactored frontend action overlays to use a global event-driven toast host mounted above routing in `main.tsx`, making success/error notifications independent of route component state.
+- Added stable `data-testid="action-toast"` and `data-tone` attributes to make overlay rendering observable in browser devtools and automated checks.
+- Added error toasts for save, refresh, and threat feed rule-apply failures so failed API calls are visibly distinct from missing success overlays.
+
+### Changed
+
+- Threat feed approve/reject actions now show success overlays when rules are applied or rejected successfully.
+
+### Validation
+
+- Frontend production build passed with `npm run build`.
+- Frontend test command `npm test -- --run` was attempted, but Vitest exited with no test files found.
+- Frontend build emitted the existing Vite chunk-size warning; no build failure occurred.
+
 ## Unreleased - 2026-05-28 (session 11)
 
 ### Fixed

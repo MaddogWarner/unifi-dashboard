@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
@@ -30,6 +31,7 @@ from app.schemas.threatfeed import (
 )
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 @router.get("/feeds", response_model=list[ThreatFeedSourceOut])
@@ -171,7 +173,10 @@ async def approve_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
     try:
         return await apply_pending_rule(pending_id)
     except ValueError as exc:
-        raise HTTPException(404, str(exc)) from exc
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        log.exception("Unexpected error approving pending rule %s", pending_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/pending-rules/{pending_id}/reject", response_model=ThreatFeedPendingRuleOut)
@@ -179,7 +184,10 @@ async def reject_rule(pending_id: int) -> ThreatFeedPendingRule:
     try:
         return await reject_pending_rule(pending_id)
     except ValueError as exc:
-        raise HTTPException(404, str(exc)) from exc
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        log.exception("Unexpected error rejecting pending rule %s", pending_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/refresh")

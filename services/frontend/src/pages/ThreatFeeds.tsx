@@ -19,6 +19,7 @@ export function ThreatFeeds() {
   const [cidrSearch, setCidrSearch] = useState("");
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const status = useQuery({
     queryKey: ["threatfeed-status"],
     queryFn: getThreatFeedStatus,
@@ -50,9 +51,25 @@ export function ThreatFeeds() {
     onSuccess: invalidate
   });
   const removeFeed = useMutation({ mutationFn: deleteThreatFeedSource, onSuccess: invalidate });
-  const refresh = useMutation({ mutationFn: refreshThreatFeed, onSuccess: invalidate });
-  const approve = useMutation({ mutationFn: approveThreatFeedRule, onSuccess: invalidate });
-  const reject = useMutation({ mutationFn: rejectThreatFeedRule, onSuccess: invalidate });
+  const onActionError = (err: unknown) =>
+    setActionError(err instanceof Error ? err.message : String(err));
+  const onActionSuccess = () => { setActionError(null); invalidate(); };
+
+  const refresh = useMutation({
+    mutationFn: refreshThreatFeed,
+    onSuccess: onActionSuccess,
+    onError: onActionError
+  });
+  const approve = useMutation({
+    mutationFn: approveThreatFeedRule,
+    onSuccess: onActionSuccess,
+    onError: onActionError
+  });
+  const reject = useMutation({
+    mutationFn: rejectThreatFeedRule,
+    onSuccess: onActionSuccess,
+    onError: onActionError
+  });
 
   return (
     <div className="space-y-6">
@@ -82,6 +99,9 @@ export function ThreatFeeds() {
 
       <section className="rounded-md border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-semibold text-slate-950">Pending Rule Changes</h2>
+        {actionError ? (
+          <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">{actionError}</p>
+        ) : null}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
@@ -113,18 +133,20 @@ export function ThreatFeeds() {
                     {rule.status === "pending" ? (
                       <>
                         <button
-                          className="inline-flex items-center gap-1 rounded border border-emerald-300 px-2 py-1 text-sm text-emerald-700 hover:bg-emerald-50"
+                          className="inline-flex items-center gap-1 rounded border border-emerald-300 px-2 py-1 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                          disabled={approve.isPending || reject.isPending}
                           onClick={() => approve.mutate(rule.id)}
                         >
                           <Check className="h-4 w-4" />
-                          Approve
+                          {approve.isPending ? "Approving…" : "Approve"}
                         </button>
                         <button
-                          className="inline-flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-sm text-rose-700 hover:bg-rose-50"
+                          className="inline-flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                          disabled={approve.isPending || reject.isPending}
                           onClick={() => reject.mutate(rule.id)}
                         >
                           <X className="h-4 w-4" />
-                          Reject
+                          {reject.isPending ? "Rejecting…" : "Reject"}
                         </button>
                       </>
                     ) : null}
@@ -133,7 +155,7 @@ export function ThreatFeeds() {
               ))}
               {!pending.data?.length ? (
                 <tr className="border-t border-slate-100">
-                  <td className="p-2 text-slate-500" colSpan={6}>No pending rule changes</td>
+                  <td className="p-2 text-slate-500" colSpan={7}>No pending rule changes</td>
                 </tr>
               ) : null}
             </tbody>

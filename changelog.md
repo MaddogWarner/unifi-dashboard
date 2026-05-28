@@ -2,6 +2,24 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 4)
+
+### Fixed
+
+- Fixed approve/reject/refresh mutations on the Threat Feeds page silently discarding errors. Added `onError` handlers that display an inline error banner above the Pending Rule Changes table so any HTTP 4xx/500 response is visible rather than swallowed.
+- Fixed approve and reject router endpoints only catching `ValueError`; unhandled exceptions now produce an HTTP 500 with the error detail rather than an opaque FastAPI error, ensuring `onError` receives a useful message.
+- Fixed "Approving…"/"Rejecting…" button labels and `disabled` state during in-flight mutations so double-clicks are prevented.
+- Fixed `colSpan` on the empty-state row in the Pending Rule Changes table (6 → 7) to match the seven-column header.
+
+### Changed
+
+- Added loading labels ("Approving…" / "Rejecting…") and `disabled` state on Approve/Reject buttons while a mutation is in flight.
+
+### Validation
+
+- Python compile validation passed for `routers/threatfeed.py`.
+- Frontend production build passed with `npm run build`.
+
 ## Unreleased - 2026-05-28 (session 3)
 
 ### Fixed

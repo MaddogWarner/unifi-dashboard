@@ -96,8 +96,13 @@ async def _upsert_ids_config(session: AsyncSession, config: dict) -> None:
     if existing is None:
         existing = IdsConfig(id=1)
         session.add(existing)
-    existing.enabled = bool(config.get("enabled") or config.get("ips_enabled"))
+    log.info("IDS config from UniFi: %s", config)
     existing.mode = config.get("mode") or config.get("ids_mode")
+    existing.enabled = bool(
+        config.get("enabled")
+        or config.get("ips_enabled")
+        or existing.mode
+    )
     existing.categories = _json(config.get("categories", []))
     existing.sensitivity = config.get("sensitivity")
     existing.synced_at = now

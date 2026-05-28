@@ -65,7 +65,19 @@ async def _fetch_feed(url: str, proxy: str | None) -> list[str]:
     entries: list[str] = []
     content_type = response.headers.get("content-type", "")
     if "json" in content_type or url.endswith(".json"):
-        data = response.json()
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            # JSONL — one JSON object per line (e.g. Spamhaus DROP v4)
+            data = []
+            for line in response.text.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                try:
+                    data.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, dict):

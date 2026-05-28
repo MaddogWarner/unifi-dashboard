@@ -72,3 +72,51 @@ def test_camel_case_payload_fields_are_supported() -> None:
 
     assert result["enabled"] is True
     assert result["mode"] == "ips"
+
+
+def test_camel_case_notify_and_block_value_maps_to_ips() -> None:
+    result = normalise_ids_config(
+        {
+            "intrusionPreventionEnabled": True,
+            "detectionMode": "notifyAndBlock",
+        }
+    )
+
+    assert result["enabled"] is True
+    assert result["mode"] == "ips"
+
+
+def test_block_action_maps_to_ips() -> None:
+    result = normalise_ids_config(
+        {
+            "intrusionPreventionEnabled": True,
+            "action": "block",
+        }
+    )
+
+    assert result["enabled"] is True
+    assert result["mode"] == "ips"
+
+
+def test_alert_and_block_action_mode_maps_to_ips() -> None:
+    result = normalise_ids_config(
+        {
+            "intrusionPreventionEnabled": True,
+            "actionMode": "alertAndBlock",
+        }
+    )
+
+    assert result["enabled"] is True
+    assert result["mode"] == "ips"
+
+
+def test_disabled_payload_clears_stale_prevention_mode() -> None:
+    result = normalise_ids_config(
+        {
+            "intrusionPreventionEnabled": "off",
+            "actionMode": "alertAndBlock",
+        }
+    )
+
+    assert result["enabled"] is False
+    assert result["mode"] is None

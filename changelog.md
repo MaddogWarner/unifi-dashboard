@@ -2,6 +2,18 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 15)
+
+### Fixed
+
+- Fixed IPS prevention-mode detection for UniFi IDS/IPS payloads that report block mode using camelCase or action-style values such as `notifyAndBlock`, `alertAndBlock`, or `block`.
+- Expanded IDS mode normalisation to recognise additional UniFi mode fields including `ips_mode`, `protection_mode`, `prevention_mode`, `action_mode`, `security_mode`, and `threat_detection_mode`.
+
+### Validation
+
+- Python syntax validation passed for IDS poller, assessment service, threats router, and IDS normalisation tests.
+- Focused IDS normalisation tests could not be run in this local environment because `pytest` is not installed on PATH.
+
 ## Unreleased - 2026-05-28 (session 14)
 
 ### Fixed

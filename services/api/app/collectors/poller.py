@@ -30,19 +30,32 @@ IDS_ENABLE_FIELDS = (
 IDS_MODE_FIELDS = (
     "mode",
     "ids_mode",
+    "ips_mode",
     "detection_mode",
     "intrusion_prevention_mode",
     "threat_management_mode",
+    "protection_mode",
+    "prevention_mode",
+    "action",
+    "action_mode",
+    "security_mode",
+    "threat_detection_mode",
 )
 IDS_PREVENTION_VALUES = {
     "ips",
+    "prevent",
     "prevention",
     "block",
+    "blocked",
+    "drop",
+    "notify_block",
     "notify_and_block",
-    "notify-and-block",
-    "notify and block",
+    "alert_block",
+    "alert_and_block",
+    "detect_block",
+    "detect_and_block",
 }
-IDS_DETECTION_VALUES = {"ids", "detection", "notify", "alert"}
+IDS_DETECTION_VALUES = {"ids", "detect", "detection", "notify", "alert"}
 TRUTHY_VALUES = {"1", "true", "yes", "on", "enabled", "enable"}
 FALSY_VALUES = {"0", "false", "no", "off", "disabled", "disable", ""}
 
@@ -52,7 +65,7 @@ def _json(data: Any) -> str:
 
 
 def _normalise_token(value: Any) -> str:
-    return str(value).strip().lower().replace(" ", "_")
+    return _normalise_key(str(value).strip()).replace(" ", "_")
 
 
 def _normalise_key(value: str) -> str:

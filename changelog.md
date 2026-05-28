@@ -2,6 +2,18 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 8)
+
+### Fixed
+
+- Fixed 404 on `POST /integration/v1/sites/default/firewall-policies` — the v2 integration API has no write endpoint for firewall policies. Reverted `_apply_change` create path to use v1 `create_firewall_rule` and delete path to use `delete_firewall_rule`. The actual original bug (session 6's motivation) was that `src_firewallgroup_ids` was hardcoded as `[]` in the rule payload; it is now populated with the group ID at call time (`{**rule_payload, "src_firewallgroup_ids": [group_id]}`).
+- Changed `rule_index` from `10` to `20000` so auto-generated block rules are appended at the end of the rule list rather than near user-defined rules at the top.
+- Removed dead v2-only code added in session 6: `_RULESET_ZONES`, `_zones_for_ruleset()`, `_policy_payload()` from `threat_feed_collector.py`, and `create_firewall_policy()`, `update_firewall_policy()`, `delete_firewall_policy()` from `unifi_client.py`.
+
+### Validation
+
+- Python syntax validation passed for `collectors/threat_feed_collector.py`, `services/unifi_client.py`.
+
 ## Unreleased - 2026-05-28 (session 7)
 
 ### Fixed

@@ -2,6 +2,17 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 6)
+
+### Fixed
+
+- Fixed HTTP 500 on Approve caused by a `UNIQUE(ruleset, chunk_index, action, payload_hash, status)` constraint violation. When a second approval attempt failed, trying to insert `status="failed"` conflicted with an existing failed record from the prior attempt. `_queue_pending_rule` now deletes stale `failed`/`rejected` records for the same key before inserting a new pending entry, preventing the `IntegrityError` that propagated to HTTP 500.
+- Migrated threat feed enforcement from the legacy v1 `/rest/firewallrule` endpoint to the v2 `/firewall-policies` endpoint. Added `create_firewall_policy`, `update_firewall_policy`, and `delete_firewall_policy` to `unifi_client.py`. Added `_zones_for_ruleset` (maps ruleset names to UniFi v2 zone pairs) and `_policy_payload` (builds the v2 zone policy payload with address group reference) to `threat_feed_collector.py`. `_apply_change` now uses these for create and delete; update still only refreshes the group members.
+
+### Validation
+
+- Python compile validation passed for `collectors/threat_feed_collector.py`, `services/unifi_client.py`.
+
 ## Unreleased - 2026-05-28 (session 5)
 
 ### Fixed

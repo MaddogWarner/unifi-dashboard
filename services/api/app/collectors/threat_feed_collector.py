@@ -142,6 +142,7 @@ def _rule_payloads(ruleset: str, idx: int, chunk: list[str]) -> tuple[dict, dict
         "group_type": "address-group",
         "group_members": chunk,
     }
+    # rule_payload kept for backward-compat payload_json storage; not used for v2 enforcement
     rule_payload = {
         "name": rule_name,
         "action": "drop",
@@ -149,12 +150,38 @@ def _rule_payloads(ruleset: str, idx: int, chunk: list[str]) -> tuple[dict, dict
         "ruleset": ruleset,
         "rule_index": 10,
         "src_firewallgroup_ids": [],
-        "dst_address": "",
-        "src_address": "",
         "protocol": "all",
         "logging": True,
     }
     return group_payload, rule_payload
+
+
+_RULESET_ZONES: dict[str, tuple[str, str]] = {
+    "WAN_IN":    ("External", "Internal"),
+    "WAN_LOCAL": ("External", "Local"),
+    "LAN_IN":    ("Internal", "Internal"),
+    "LAN_OUT":   ("Internal", "External"),
+    "LAN_LOCAL": ("Internal", "Local"),
+    "GUEST_IN":  ("GuestWLAN", "Internal"),
+}
+
+
+def _zones_for_ruleset(ruleset: str) -> tuple[str, str]:
+    return _RULESET_ZONES.get(ruleset, ("External", "Internal"))
+
+
+def _policy_payload(ruleset: str, idx: int, group_id: str) -> dict:
+    src_zone, dst_zone = _zones_for_ruleset(ruleset)
+    return {
+        "name": f"Block-ThreatFeed-{ruleset}-{idx}",
+        "action": "DROP",
+        "enabled": True,
+        "src": {"zone": src_zone},
+        "dst": {"zone": dst_zone},
+        "protocol": "all",
+        "logging": True,
+        "src_firewallgroup_ids": [group_id],
+    }
 
 
 async def _queue_pending_rule(
@@ -170,6 +197,17 @@ async def _queue_pending_rule(
 ) -> None:
     payload = {"group": group_payload, "rule": rule_payload}
     async with async_session_factory() as session:
+        # Remove stale failed/rejected records with the same key to avoid unique constraint
+        # violations when a subsequent approval attempt also fails.
+        await session.execute(
+            delete(ThreatFeedPendingRule).where(
+                ThreatFeedPendingRule.ruleset == ruleset,
+                ThreatFeedPendingRule.chunk_index == idx,
+                ThreatFeedPendingRule.action == action,
+                ThreatFeedPendingRule.payload_hash == payload_hash,
+                ThreatFeedPendingRule.status.in_(["failed", "rejected"]),
+            )
+        )
         already_pending = await session.scalar(
             select(ThreatFeedPendingRule).where(
                 ThreatFeedPendingRule.ruleset == ruleset,
@@ -251,7 +289,7 @@ async def _apply_change(
     rule_id = rule_unifi_id or (existing.rule_unifi_id if existing else None)
     if action == "delete":
         if rule_id:
-            await unifi_client.delete_firewall_rule(rule_id)
+            await unifi_client.delete_firewall_policy(rule_id)
         if group_id:
             await unifi_client.delete_firewall_group(group_id)
         if existing:
@@ -267,13 +305,12 @@ async def _apply_change(
     group_id = group.get("_id") or group.get("id")
     if not group_id:
         raise ValueError("UniFi did not return a firewall group ID")
-    rule_payload["src_firewallgroup_ids"] = [group_id]
-    rule = await unifi_client.create_firewall_rule(rule_payload)
-    rule_id = rule.get("_id") or rule.get("id")
-    if not rule_id:
-        raise ValueError("UniFi did not return a firewall rule ID")
-    log.info("Threat feed enforcement: group_id=%s rule_id=%s ruleset=%s chunk=%s", group_id, rule_id, ruleset, idx)
-    await _record_rule(ruleset, idx, group_id, rule_id, payload_hash)
+    policy = await unifi_client.create_firewall_policy(_policy_payload(ruleset, idx, group_id))
+    policy_id = policy.get("_id") or policy.get("id")
+    if not policy_id:
+        raise ValueError("UniFi did not return a firewall policy ID")
+    log.info("Threat feed enforcement: group_id=%s policy_id=%s ruleset=%s chunk=%s", group_id, policy_id, ruleset, idx)
+    await _record_rule(ruleset, idx, group_id, policy_id, payload_hash)
 
 
 async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:

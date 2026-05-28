@@ -146,6 +146,23 @@ async def delete_firewall_rule(rule_id: str) -> None:
     await _request("DELETE", f"{base_v1}/rest/firewallrule/{rule_id}", api_key, verify)
 
 
+async def create_firewall_policy(payload: dict) -> dict:
+    _base_v1, base_v2, api_key, verify = await _load_config()
+    data = await _request("POST", f"{base_v2}/firewall-policies", api_key, verify, payload)
+    return _first_item(data)
+
+
+async def update_firewall_policy(policy_id: str, payload: dict) -> dict:
+    _base_v1, base_v2, api_key, verify = await _load_config()
+    data = await _request("PUT", f"{base_v2}/firewall-policies/{policy_id}", api_key, verify, payload)
+    return _first_item(data)
+
+
+async def delete_firewall_policy(policy_id: str) -> None:
+    _base_v1, base_v2, api_key, verify = await _load_config()
+    await _request("DELETE", f"{base_v2}/firewall-policies/{policy_id}", api_key, verify)
+
+
 async def get_networks() -> list[dict]:
     base_v1, _base_v2, api_key, verify = await _load_config()
     data = await _get(f"{base_v1}/rest/networkconf", api_key, verify)

@@ -25,6 +25,8 @@ log = logging.getLogger(__name__)
 
 CHUNK_SIZE = 500
 THREAT_FEED_RULE_INDEX_START = 20000
+THREAT_FEED_GROUP_PREFIX = "ThreatFeed-"
+THREAT_FEED_RULE_PREFIX = "Block-ThreatFeed-"
 VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
 
 
@@ -44,6 +46,36 @@ def _hash_payload(data: Any) -> str:
 
 def _is_rule_index_collision(exc: Exception) -> bool:
     return isinstance(exc, httpx.HTTPStatusError) and "FirewallRuleIndexExisted" in str(exc)
+
+
+def _unifi_id(item: dict | None) -> str | None:
+    return (item or {}).get("_id") or (item or {}).get("id")
+
+
+def _find_named(items: list[dict], name: str) -> dict | None:
+    return next((item for item in items if item.get("name") == name), None)
+
+
+def _is_not_found(exc: Exception) -> bool:
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 404
+
+
+async def _delete_firewall_rule_if_present(rule_id: str) -> None:
+    try:
+        await unifi_client.delete_firewall_rule(rule_id)
+    except Exception as exc:
+        if not _is_not_found(exc):
+            raise
+        log.info("Threat feed UniFi rule already missing id=%s", rule_id)
+
+
+async def _delete_firewall_group_if_present(group_id: str) -> None:
+    try:
+        await unifi_client.delete_firewall_group(group_id)
+    except Exception as exc:
+        if not _is_not_found(exc):
+            raise
+        log.info("Threat feed UniFi group already missing id=%s", group_id)
 
 
 def validate_outbound_url(url: str) -> None:
@@ -140,8 +172,8 @@ async def _poll_all_feeds(proxy: str | None) -> None:
 
 
 def _rule_payloads(ruleset: str, idx: int, chunk: list[str]) -> tuple[dict, dict]:
-    group_name = f"ThreatFeed-{ruleset}-{idx}"
-    rule_name = f"Block-ThreatFeed-{ruleset}-{idx}"
+    group_name = f"{THREAT_FEED_GROUP_PREFIX}{ruleset}-{idx}"
+    rule_name = f"{THREAT_FEED_RULE_PREFIX}{ruleset}-{idx}"
     group_payload = {
         "name": group_name,
         "group_type": "address-group",
@@ -188,9 +220,39 @@ async def _create_firewall_rule_with_available_index(rule_payload: dict, group_i
             raise
         retry_payload = {
             **payload,
-            "rule_index": await _next_rule_index(str(rule_payload["ruleset"]), int(payload["rule_index"]) + 1),
+            "rule_index": await _next_rule_index(
+                str(rule_payload["ruleset"]),
+                int(payload["rule_index"]) + 1,
+            ),
         }
         return await unifi_client.create_firewall_rule(retry_payload)
+
+
+async def _get_or_create_firewall_group(group_payload: dict) -> dict:
+    groups = await unifi_client.get_firewall_groups()
+    existing = _find_named(groups, group_payload["name"])
+    if existing:
+        group_id = _unifi_id(existing)
+        log.info("Reusing existing threat feed group %s id=%s", group_payload["name"], group_id)
+        if group_id:
+            return await unifi_client.update_firewall_group(group_id, group_payload)
+        return existing
+    return await unifi_client.create_firewall_group(group_payload)
+
+
+async def _get_or_create_firewall_rule(rule_payload: dict, group_id: str) -> dict:
+    rules = await unifi_client.get_firewall_rules()
+    existing = _find_named(rules, rule_payload["name"])
+    if existing:
+        rule_id = _unifi_id(existing)
+        log.info("Reusing existing threat feed rule %s id=%s", rule_payload["name"], rule_id)
+        if rule_id:
+            return await unifi_client.update_firewall_rule(
+                rule_id,
+                {**rule_payload, "src_firewallgroup_ids": [group_id]},
+            )
+        return existing
+    return await _create_firewall_rule_with_available_index(rule_payload, group_id)
 
 
 async def _queue_pending_rule(
@@ -253,25 +315,25 @@ async def _record_rule(
     payload_hash: str,
 ) -> None:
     async with async_session_factory() as session:
-        existing = await session.scalar(
-            select(ThreatFeedRule).where(
-                ThreatFeedRule.ruleset == ruleset, ThreatFeedRule.chunk_index == idx
+        await session.execute(
+            insert(ThreatFeedRule)
+            .values(
+                ruleset=ruleset,
+                chunk_index=idx,
+                group_unifi_id=group_id,
+                rule_unifi_id=rule_id,
+                payload_hash=payload_hash,
+            )
+            .on_conflict_do_update(
+                index_elements=["ruleset", "chunk_index"],
+                set_={
+                    "group_unifi_id": group_id,
+                    "rule_unifi_id": rule_id,
+                    "payload_hash": payload_hash,
+                    "updated_at": datetime.now(UTC),
+                },
             )
         )
-        if existing is None:
-            session.add(
-                ThreatFeedRule(
-                    ruleset=ruleset,
-                    chunk_index=idx,
-                    group_unifi_id=group_id,
-                    rule_unifi_id=rule_id,
-                    payload_hash=payload_hash,
-                )
-            )
-        else:
-            existing.group_unifi_id = group_id
-            existing.rule_unifi_id = rule_id
-            existing.payload_hash = payload_hash
         await session.commit()
 
 
@@ -298,9 +360,9 @@ async def _apply_change(
     rule_id = rule_unifi_id or (existing.rule_unifi_id if existing else None)
     if action == "delete":
         if rule_id:
-            await unifi_client.delete_firewall_rule(rule_id)
+            await _delete_firewall_rule_if_present(rule_id)
         if group_id:
-            await unifi_client.delete_firewall_group(group_id)
+            await _delete_firewall_group_if_present(group_id)
         if existing:
             await _delete_record(existing.id)
         return
@@ -310,15 +372,21 @@ async def _apply_change(
         await unifi_client.update_firewall_group(group_id, group_payload)
         await _record_rule(ruleset, idx, group_id, rule_id, payload_hash)
         return
-    group = await unifi_client.create_firewall_group(group_payload)
-    group_id = group.get("_id") or group.get("id")
+    group = await _get_or_create_firewall_group(group_payload)
+    group_id = _unifi_id(group)
     if not group_id:
         raise ValueError("UniFi did not return a firewall group ID")
-    rule = await _create_firewall_rule_with_available_index(rule_payload, group_id)
-    rule_id = rule.get("_id") or rule.get("id")
+    rule = await _get_or_create_firewall_rule(rule_payload, group_id)
+    rule_id = _unifi_id(rule)
     if not rule_id:
         raise ValueError("UniFi did not return a firewall rule ID")
-    log.info("Threat feed enforcement: group_id=%s rule_id=%s ruleset=%s chunk=%s", group_id, rule_id, ruleset, idx)
+    log.info(
+        "Threat feed enforcement: group_id=%s rule_id=%s ruleset=%s chunk=%s",
+        group_id,
+        rule_id,
+        ruleset,
+        idx,
+    )
     await _record_rule(ruleset, idx, group_id, rule_id, payload_hash)
 
 
@@ -464,16 +532,25 @@ async def _cleanup_unifi_rules() -> None:
     for rule in rules:
         try:
             if rule.rule_unifi_id:
-                await unifi_client.delete_firewall_rule(rule.rule_unifi_id)
-            await unifi_client.delete_firewall_group(rule.group_unifi_id)
+                await _delete_firewall_rule_if_present(rule.rule_unifi_id)
+            await _delete_firewall_group_if_present(rule.group_unifi_id)
         except Exception:
             log.exception("Failed to delete threat feed UniFi rule %s", rule.id)
+
+    for rule in await unifi_client.get_firewall_rules():
+        rule_id = _unifi_id(rule)
+        if rule_id and str(rule.get("name", "")).startswith(THREAT_FEED_RULE_PREFIX):
+            await _delete_firewall_rule_if_present(rule_id)
+
+    for group in await unifi_client.get_firewall_groups():
+        group_id = _unifi_id(group)
+        if group_id and str(group.get("name", "")).startswith(THREAT_FEED_GROUP_PREFIX):
+            await _delete_firewall_group_if_present(group_id)
+
     async with async_session_factory() as session:
         await session.execute(delete(ThreatFeedRule))
         await session.execute(delete(ThreatFeedEntry))
-        await session.execute(
-            delete(ThreatFeedPendingRule).where(ThreatFeedPendingRule.status == "pending")
-        )
+        await session.execute(delete(ThreatFeedPendingRule))
         await session.commit()
 
 

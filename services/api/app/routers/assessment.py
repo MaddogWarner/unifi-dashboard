@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,27 +13,32 @@ from app.services.assessment import run_checks
 from app.services.policy_engine import detect_conflicts
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 @router.get("/", response_model=AssessmentReportOut)
 async def assessment(db: AsyncSession = Depends(get_db)) -> AssessmentReportOut:
-    policies = list((await db.scalars(select(FirewallPolicy))).all())
-    rules = list((await db.scalars(select(FirewallRule))).all())
-    networks = list((await db.scalars(select(Network))).all())
-    ids_config = await db.scalar(select(IdsConfig).order_by(IdsConfig.synced_at.desc()).limit(1))
-    last_scan = await db.scalar(select(ScanResult).order_by(ScanResult.created_at.desc()))
-    checks = await run_checks(policies, rules, networks, ids_config, last_scan)
-    pass_count = sum(1 for check in checks if check.status == "pass")
-    warn_count = sum(1 for check in checks if check.status == "warn")
-    fail_count = sum(1 for check in checks if check.status == "fail")
-    score = max(0, int(((pass_count + warn_count * 0.5) / len(checks)) * 100))
-    return AssessmentReportOut(
-        score=score,
-        pass_count=pass_count,
-        warn_count=warn_count,
-        fail_count=fail_count,
-        checks=[CheckResultOut(**check.__dict__) for check in checks],
-    )
+    try:
+        policies = list((await db.scalars(select(FirewallPolicy))).all())
+        rules = list((await db.scalars(select(FirewallRule))).all())
+        networks = list((await db.scalars(select(Network))).all())
+        ids_config = await db.scalar(select(IdsConfig).order_by(IdsConfig.synced_at.desc()).limit(1))
+        last_scan = await db.scalar(select(ScanResult).order_by(ScanResult.created_at.desc()))
+        checks = await run_checks(policies, rules, networks, ids_config, last_scan)
+        pass_count = sum(1 for check in checks if check.status == "pass")
+        warn_count = sum(1 for check in checks if check.status == "warn")
+        fail_count = sum(1 for check in checks if check.status == "fail")
+        score = max(0, int(((pass_count + warn_count * 0.5) / len(checks)) * 100))
+        return AssessmentReportOut(
+            score=score,
+            pass_count=pass_count,
+            warn_count=warn_count,
+            fail_count=fail_count,
+            checks=[CheckResultOut(**check.__dict__) for check in checks],
+        )
+    except Exception as exc:
+        log.exception("Failed to generate security assessment")
+        raise HTTPException(status_code=500, detail="Security assessment is temporarily unavailable") from exc
 
 
 @router.get("/conflicts", response_model=list[ConflictReportOut])

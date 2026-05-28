@@ -2,6 +2,8 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
@@ -29,6 +31,7 @@ from app.routers import (
 )
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 SETTING_DEFAULTS = {
     "unifi.host": app_config.unifi_host,
@@ -65,8 +68,15 @@ async def seed_defaults() -> None:
         await session.commit()
 
 
+async def run_migrations() -> None:
+    alembic_config = Config("alembic.ini")
+    await asyncio.to_thread(command.upgrade, alembic_config, "head")
+    log.info("Database migrations applied")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await run_migrations()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await seed_defaults()

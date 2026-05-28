@@ -2,6 +2,20 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 13)
+
+### Fixed
+
+- Added automatic `alembic upgrade head` execution during API startup before `create_all`, preventing schema drift such as missing `ids_config.raw_json` from breaking assessment queries after container updates.
+- Fixed threat feed disable cleanup so generated UniFi rules and groups are deleted automatically regardless of preview mode.
+- Fixed cleanup of orphaned UniFi threat-feed objects by deleting generated rules with the `Block-ThreatFeed-` prefix and groups with the `ThreatFeed-` prefix, even when local DB tracking rows are missing.
+- Fixed threat-feed approval retries returning HTTP 500 after UniFi objects were already created. Approvals now reconcile existing generated UniFi groups/rules by name and upsert the local `(ruleset, chunk_index)` tracking row.
+- Added assessment route exception logging and a clear HTTP 500 detail when assessment generation is temporarily unavailable.
+
+### Validation
+
+- Python syntax validation passed for API app, Alembic migrations, and API tests.
+
 ## Unreleased - 2026-05-28 (session 12)
 
 ### Fixed

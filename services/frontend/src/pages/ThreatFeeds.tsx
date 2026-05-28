@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, ShieldBan, Trash2, X } from "lucide-react";
+import { ActionToast } from "../components/ActionToast";
 import {
   addThreatFeedSource,
   approveThreatFeedRule,
@@ -20,6 +21,7 @@ export function ThreatFeeds() {
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const status = useQuery({
     queryKey: ["threatfeed-status"],
     queryFn: getThreatFeedStatus,
@@ -57,8 +59,15 @@ export function ThreatFeeds() {
 
   const refresh = useMutation({
     mutationFn: refreshThreatFeed,
-    onSuccess: onActionSuccess,
-    onError: onActionError
+    onMutate: () => setToastMessage(null),
+    onSuccess: () => {
+      onActionSuccess();
+      setToastMessage("Refresh successful");
+    },
+    onError: (err) => {
+      setToastMessage(null);
+      onActionError(err);
+    }
   });
   const onRuleActionSuccess = (data: { status: string; error: string | null }) => {
     invalidate();
@@ -82,6 +91,7 @@ export function ThreatFeeds() {
 
   return (
     <div className="space-y-6">
+      <ActionToast message={toastMessage} onDismiss={() => setToastMessage(null)} />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-950">Threat Feeds</h1>

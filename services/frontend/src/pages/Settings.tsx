@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
+import { ActionToast } from "../components/ActionToast";
 import { getSettings, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
 
 const ruleSets = [
@@ -32,16 +33,44 @@ export function Settings() {
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
   const [draft, setDraft] = useState(defaults);
   const [showKey, setShowKey] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: updateSettings,
+    onMutate: () => setToastMessage(null),
     onSuccess: (data) => {
       setDraft({ ...defaults, ...data });
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       queryClient.invalidateQueries({ queryKey: ["threatfeed-status"] });
+      setToastMessage("Save successful");
+    },
+    onError: () => setToastMessage(null)
+  });
+  const cveRefresh = useMutation({
+    mutationFn: refreshCVE,
+    onMutate: () => setToastMessage(null),
+    onSuccess: () => {
+      setRefreshError(null);
+      setToastMessage("Refresh successful");
+    },
+    onError: (err) => {
+      setToastMessage(null);
+      setRefreshError(errorMessage(err));
     }
   });
-  const cveRefresh = useMutation({ mutationFn: refreshCVE });
-  const feedRefresh = useMutation({ mutationFn: refreshThreatFeed });
+  const feedRefresh = useMutation({
+    mutationFn: refreshThreatFeed,
+    onMutate: () => setToastMessage(null),
+    onSuccess: () => {
+      setRefreshError(null);
+      setToastMessage("Refresh successful");
+      queryClient.invalidateQueries({ queryKey: ["threatfeed-status"] });
+    },
+    onError: (err) => {
+      setToastMessage(null);
+      setRefreshError(errorMessage(err));
+    }
+  });
 
   useEffect(() => {
     if (settings.data) setDraft({ ...defaults, ...settings.data });
@@ -56,6 +85,7 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
+      <ActionToast message={toastMessage} onDismiss={() => setToastMessage(null)} />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-950">Settings</h1>
@@ -252,8 +282,13 @@ export function Settings() {
         </fieldset>
       </section>
       {save.error ? <p className="text-sm text-rose-700">{String(save.error)}</p> : null}
+      {refreshError ? <p className="text-sm text-rose-700">{refreshError}</p> : null}
     </div>
   );
+}
+
+function errorMessage(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
 }
 
 function parseZones(value: string): string[] {

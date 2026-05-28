@@ -2,6 +2,24 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 9)
+
+### Added
+
+- Added a reusable non-blocking success toast for completed frontend actions. The toast auto-dismisses after 3 seconds, can be manually dismissed, uses `aria-live="polite"`, and avoids blocking page navigation.
+
+### Changed
+
+- Settings now shows `Save successful` only after settings are successfully persisted through the API.
+- Settings CVE and threat feed `Run Now` actions now show `Refresh successful` only after the refresh API call succeeds.
+- Threat Feeds page `Refresh` now shows `Refresh successful` only after the refresh API call succeeds.
+- Settings refresh failures now render a visible inline error message instead of failing silently.
+
+### Validation
+
+- Frontend production build passed with `npm run build`.
+- Frontend build emitted the existing Vite chunk-size warning; no build failure occurred.
+
 ## Unreleased - 2026-05-28 (session 8)
 
 ### Fixed

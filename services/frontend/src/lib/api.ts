@@ -103,11 +103,98 @@ export type ScanResult = {
   completed_at: string | null;
 };
 
+export type CVEAlert = {
+  id: number;
+  cve_id: string;
+  title: string | null;
+  description: string | null;
+  severity: string;
+  cvss_score: number | null;
+  published_at: string | null;
+  source: string;
+  ubiquiti_bulletin_url: string | null;
+  acknowledged_at: string | null;
+  affected_devices: string[];
+  created_at: string;
+};
+
+export type CVEListResponse = {
+  total: number;
+  items: CVEAlert[];
+};
+
+export type DeviceInventory = {
+  id: number;
+  name: string | null;
+  model: string | null;
+  firmware_version: string | null;
+  ip_address: string | null;
+  synced_at: string | null;
+  active_cves: string[];
+};
+
+export type ThreatFeedSource = {
+  id: number;
+  name: string;
+  url: string;
+  enabled: boolean;
+  last_polled_at: string | null;
+  last_entry_count: number;
+  last_error: string | null;
+  created_at: string;
+};
+
+export type ThreatFeedStatus = {
+  enabled: boolean;
+  apply_mode: string;
+  last_updated: string | null;
+  total_entries: number;
+  pending_count: number;
+  zone_rules: Array<{ ruleset: string; group_count: number; rule_count: number }>;
+};
+
+export type ThreatFeedEntry = {
+  id: number;
+  cidr: string;
+  feed_source_name: string;
+  added_at: string;
+};
+
+export type ThreatFeedPendingRule = {
+  id: number;
+  ruleset: string;
+  chunk_index: number;
+  action: string;
+  group_name: string;
+  rule_name: string;
+  entry_count: number;
+  status: string;
+  error: string | null;
+  created_at: string;
+  decided_at: string | null;
+  applied_at: string | null;
+};
+
 export async function get<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE}${path}`);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.json() as Promise<T>;
 }
+
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method,
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
+export const post = <T>(path: string, body?: unknown) => send<T>("POST", path, body);
+export const put = <T>(path: string, body?: unknown) => send<T>("PUT", path, body);
+export const del = <T>(path: string) => send<T>("DELETE", path);
 
 export const getFirewallPolicies = () => get<FirewallPolicy[]>("/firewall/policies");
 export const getFirewallLogs = (params = "") => get<FirewallLog[]>(`/firewall/logs${params}`);
@@ -127,3 +214,38 @@ export const triggerScan = async (body: ScanRequest): Promise<{ scan_id: number 
   return response.json() as Promise<{ scan_id: number }>;
 };
 export const getScanResult = (id: number) => get<ScanResult>(`/scan/${id}`);
+export const getSettings = () => get<Record<string, string>>("/settings/");
+export const updateSettings = (settings: Record<string, string>) =>
+  put<Record<string, string>>("/settings/", { settings });
+export const getCVEAlerts = (params?: { severity?: string; acknowledged?: boolean; limit?: number }) => {
+  const query = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined) query.set(key, String(value));
+  });
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return get<CVEListResponse>(`/cve/alerts${suffix}`);
+};
+export const acknowledgeCVE = (id: number) => post<{ ok: boolean }>(`/cve/alerts/${id}/acknowledge`, {});
+export const getCVEDevices = () => get<DeviceInventory[]>("/cve/devices");
+export const refreshCVE = () => post<{ ok: boolean; message: string }>("/cve/refresh", {});
+export const getThreatFeedSources = () => get<ThreatFeedSource[]>("/threatfeed/feeds");
+export const addThreatFeedSource = (name: string, url: string) =>
+  post<ThreatFeedSource>("/threatfeed/feeds", { name, url });
+export const updateThreatFeedSource = (id: number, data: Partial<ThreatFeedSource>) =>
+  put<ThreatFeedSource>(`/threatfeed/feeds/${id}`, data);
+export const deleteThreatFeedSource = (id: number) => del<void>(`/threatfeed/feeds/${id}`);
+export const getThreatFeedStatus = () => get<ThreatFeedStatus>("/threatfeed/status");
+export const getThreatFeedEntries = (params?: { skip?: number; limit?: number; cidr?: string }) => {
+  const query = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  });
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return get<{ total: number; items: ThreatFeedEntry[] }>(`/threatfeed/entries${suffix}`);
+};
+export const getThreatFeedPendingRules = () => get<ThreatFeedPendingRule[]>("/threatfeed/pending-rules");
+export const approveThreatFeedRule = (id: number) =>
+  post<ThreatFeedPendingRule>(`/threatfeed/pending-rules/${id}/approve`, {});
+export const rejectThreatFeedRule = (id: number) =>
+  post<ThreatFeedPendingRule>(`/threatfeed/pending-rules/${id}/reject`, {});
+export const refreshThreatFeed = () => post<{ ok: boolean; message: string }>("/threatfeed/refresh", {});

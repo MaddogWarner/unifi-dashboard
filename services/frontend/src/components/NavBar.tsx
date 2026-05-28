@@ -1,13 +1,27 @@
-import { Activity, ClipboardCheck, LayoutDashboard, ListChecks, Network, Radar, Shield } from "lucide-react";
+import {
+  Activity,
+  ClipboardCheck,
+  LayoutDashboard,
+  ListChecks,
+  Network,
+  Radar,
+  Settings,
+  Shield,
+  ShieldAlert,
+  ShieldBan
+} from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const links = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/firewall", label: "Firewall", icon: Shield },
   { to: "/threats", label: "Threats", icon: Activity },
+  { to: "/cve", label: "CVE Alerts", icon: ShieldAlert },
+  { to: "/threatfeeds", label: "Threat Feeds", icon: ShieldBan },
   { to: "/vlans", label: "VLANs", icon: Network },
   { to: "/assessment", label: "Assessment", icon: ClipboardCheck },
-  { to: "/scanner", label: "Scanner", icon: Radar }
+  { to: "/scanner", label: "Scanner", icon: Radar },
+  { to: "/settings", label: "Settings", icon: Settings }
 ];
 
 export function NavBar({ alert }: { alert: boolean }) {

@@ -92,5 +92,41 @@ def get_scan_results(scan_id: int) -> dict:
     return _get(f"/scan/{scan_id}")
 
 
+@mcp.tool()
+def get_cve_alerts(severity: str = "", limit: int = 20) -> dict:
+    """List unacknowledged HIGH/CRITICAL CVE alerts for connected UniFi devices."""
+    params = {"limit": limit, "acknowledged": "false"}
+    if severity:
+        params["severity"] = severity
+    return _get(f"/cve/alerts?{urlencode(params)}")
+
+
+@mcp.tool()
+def get_cve_devices() -> list:
+    """List UniFi device inventory with firmware versions and matched CVE counts."""
+    return _get("/cve/devices")
+
+
+@mcp.tool()
+def get_threatfeed_status() -> dict:
+    """Get threat feed status, apply mode, blocked IP count, and pending approvals."""
+    return _get("/threatfeed/status")
+
+
+@mcp.tool()
+def get_threatfeed_entries(limit: int = 50, cidr_search: str = "") -> dict:
+    """Query the blocked IP/CIDR list from active threat feeds."""
+    params = {"limit": limit}
+    if cidr_search:
+        params["cidr"] = cidr_search
+    return _get(f"/threatfeed/entries?{urlencode(params)}")
+
+
+@mcp.tool()
+def get_threatfeed_pending_rules() -> list:
+    """List threat feed rule changes waiting for manual approval."""
+    return _get("/threatfeed/pending-rules")
+
+
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=8001)

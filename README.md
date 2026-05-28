@@ -14,7 +14,9 @@ A self-hosted Docker Compose stack that connects to a local Ubiquiti UniFi conso
 - **Policy conflict and drift detection** — identifies shadowed rules, duplicate policies, and tracks any change in the policy set via SHA-256 snapshot hashing
 - **Scored security assessment** — 10 automated checks (IDS enabled, default-deny WAN posture, guest isolation, logging coverage, permissive any-any rules, and more) with remediation recommendations
 - **Port scan validation** — triggers nmap against RFC1918 targets only, cross-references open ports against expected zone policies to surface enforcement gaps
-- **MCP server** — 10 tools for Claude Code / Codex to query live dashboard data conversationally
+- **CVE monitoring** *(optional)* — polls the NVD modified feed and Ubiquiti security bulletins for HIGH and CRITICAL CVEs, cross-references them against firmware versions on your connected devices, and surfaces upgrade alerts
+- **Threat feed integration** *(optional, experimental)* — polls public IP blocklists (FireHOL, Spamhaus DROP, or custom feeds) and pushes them to UniFi as address groups and firewall rules; supports preview mode (manual approval per change) or auto mode
+- **MCP server** — 15 tools for Claude Code / Codex to query live dashboard data conversationally
 
 ---
 
@@ -188,6 +190,11 @@ Replace `<dashboard-host>` with `localhost` if Claude Code is running on the sam
 | `get_drift_report` | Latest policy drift event and what changed |
 | `run_port_scan` | Trigger an nmap scan against an RFC1918 target |
 | `get_scan_results` | Retrieve results from a previous scan by ID |
+| `get_cve_alerts` | List unacknowledged HIGH/CRITICAL CVEs with affected devices |
+| `get_cve_devices` | Device inventory with matched CVE counts and firmware versions |
+| `get_threatfeed_status` | Threat feed enabled state, last update, total blocked IPs |
+| `get_threatfeed_entries` | Query the blocked IP/CIDR list — supports CIDR search and limit |
+| `get_threatfeed_pending_rules` | List pending threat feed rule changes awaiting approval |
 
 **Example Claude Code session:**
 
@@ -215,6 +222,40 @@ The scanner container requires `NET_RAW` and `NET_ADMIN` capabilities for SYN sc
 
 ---
 
+## Optional Features
+
+Both features below are disabled by default. Enable and configure them from the **Settings** page in the dashboard. All settings are stored in the database and take effect within the next poll cycle — no container restart required.
+
+An optional HTTP proxy URL can be configured in Settings if the host running the stack does not have direct internet access. The proxy applies to all outbound HTTP calls from both collectors.
+
+### CVE Monitoring
+
+When enabled, the CVE collector polls two sources on a configurable interval (default 24 hours):
+
+1. **NVD modified feed** (`nvdcve-2.0-modified.json.gz`) — the official National Vulnerability Database bulk feed, filtered to Ubiquiti (`ui`) CPE entries with a CVSS base score of 7.0 or higher (HIGH/CRITICAL only)
+2. **Ubiquiti Community security bulletins** — the bulletin index at `community.ui.com/releases` is scraped for Security Advisory posts and CVE IDs are extracted and cross-referenced with NVD records
+
+Device firmware versions are fetched from the UniFi API (`stat/device`) and compared against matched CVE CPE criteria. Affected devices are surfaced in the **CVE Alerts** page with upgrade prompts.
+
+Only HIGH (CVSS ≥ 7.0) and CRITICAL (CVSS ≥ 9.0) CVEs are stored. Alerts can be individually acknowledged once a device is patched.
+
+### Threat Feed Integration
+
+> **⚠ Experimental — read before enabling**
+
+When enabled, the threat feed collector polls configured IP blocklists and pushes the entries to your UniFi console as address groups and firewall rules via the legacy firewall API. This feature **modifies live firewall configuration** on your UniFi console.
+
+**Risks and limitations:**
+
+- **Experimental status** — the feature has not been validated against all firmware versions. The firewall rule action value used (`drop`) is believed correct for the legacy `rest/firewallrule` API, but behaviour may vary by firmware version. Inspect created rules in the UniFi dashboard after first enabling the feature and confirm they are applied correctly.
+- **Firewall clutter** — each enabled ruleset gets one address group (or multiple if the combined blocklist exceeds 500 entries) and a corresponding deny rule. These are named `ThreatFeed-{RULESET}-{N}` and `Block-ThreatFeed-{RULESET}-{N}`. Disabling the feature attempts to remove them automatically; if cleanup fails, remove any remaining `ThreatFeed-*` groups and rules manually from UniFi Network → Firewall → Address Groups / Rules.
+- **Connectivity impact** — blocking large public threat feed ranges carries a small risk of false positives. Start with a single ruleset (e.g. `WAN_IN`) rather than enabling all zones at once.
+- **Preview mode is the default** — rule changes are queued as pending approvals rather than pushed immediately. Review and approve each change on the **Threat Feeds** page before it is applied to UniFi. Switch to auto mode only once you are comfortable with the feature's behaviour on your hardware.
+
+**Minimum poll interval is 1 hour.** The default sources (FireHOL Level 1 and Spamhaus DROP) are seeded on first startup but disabled — you must explicitly enable each source from the Threat Feeds page.
+
+---
+
 ## API
 
 All endpoints are under `/api/v1/` and proxied through nginx.
@@ -236,6 +277,20 @@ All endpoints are under `/api/v1/` and proxied through nginx.
 | `/api/v1/drift/latest-change` | GET | Most recent drift event |
 | `/api/v1/scan/` | POST | Trigger nmap scan `{target, ports, scan_type}` |
 | `/api/v1/scan/{id}` | GET | Poll scan result |
+| `/api/v1/settings` | GET | Read all runtime settings |
+| `/api/v1/settings` | PUT | Update runtime settings (feature toggles, intervals, proxy URL) |
+| `/api/v1/cve/alerts` | GET | Paginated CVE alerts — filter by severity and acknowledged state |
+| `/api/v1/cve/alerts/{id}/acknowledge` | POST | Mark a CVE alert as acknowledged |
+| `/api/v1/cve/devices` | GET | Device inventory with matched CVE IDs per device |
+| `/api/v1/cve/refresh` | POST | Trigger an immediate CVE poll cycle |
+| `/api/v1/threatfeed/feeds` | GET / POST | List or add configured feed sources |
+| `/api/v1/threatfeed/feeds/{id}` | PUT / DELETE | Update or remove a feed source |
+| `/api/v1/threatfeed/status` | GET | Enabled state, last update, total entries, pending count |
+| `/api/v1/threatfeed/entries` | GET | Paginated blocked IP/CIDR entries — supports CIDR search |
+| `/api/v1/threatfeed/pending-rules` | GET | List pending rule changes awaiting approval |
+| `/api/v1/threatfeed/pending-rules/{id}/approve` | POST | Approve and apply a pending rule change to UniFi |
+| `/api/v1/threatfeed/pending-rules/{id}/reject` | POST | Reject a pending rule change |
+| `/api/v1/threatfeed/refresh` | POST | Trigger an immediate threat feed poll cycle |
 
 ---
 

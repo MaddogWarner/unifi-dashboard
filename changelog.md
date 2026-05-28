@@ -2,6 +2,59 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 2)
+
+### Added
+
+- Added persistent footer to every page with links to maddogwarner.com and github.com/MaddogWarner.
+- Added "UniFi Connection" section to the Settings page for runtime configuration of UniFi host URL, API key, site name, and SSL verification without restarting the stack.
+
+### Changed
+
+- Updated `App.tsx` layout to flex-column with `flex-1` on the main content area so the footer is always anchored to the bottom of the viewport.
+- Extended `VALID_SETTINGS` allowlist in the settings router to accept `unifi.host`, `unifi.api_key`, `unifi.site`, and `unifi.verify_ssl`, with validation for non-empty values, URL format, and boolean types.
+- Seeded UniFi connection settings from environment variables into `app_settings` on first startup so the Settings page is pre-populated.
+- Refactored `unifi_client.py` to replace module-level `_BASE_V1`, `_BASE_V2`, and `_HEADERS` constants with a `_load_config()` async function that reads live values from the database (falling back to env vars) on every call. All 15 public functions updated. UniFi credentials can now be changed via the Settings page and take effect on the next poll cycle without a container restart.
+
+### Validation
+
+- Frontend production build passed with `npm run build`.
+- Python compile validation passed for `unifi_client.py`, `routers/settings.py`, and `main.py`.
+
+## Unreleased - 2026-05-28
+
+### Added
+
+- Added Phase 2 CVE monitoring backend support, including settings storage, device inventory, CVE alert, and CVE-to-device link models plus Alembic migration `002_cve_threatfeed_settings`.
+- Added CVE collector for NVD modified-feed polling, Ubiquiti security bulletin correlation, UniFi device inventory sync, and device-to-CVE matching.
+- Added threat feed ingestion for FireHOL, Spamhaus, and custom HTTP/HTTPS feeds with IP/CIDR validation and SSRF-resistant URL checks.
+- Added threat feed UniFi enforcement workflow with two modes: `preview` for manual per-rule approval and `auto` for direct UniFi group/rule creation.
+- Added pending threat-feed rule approval records and API endpoints to approve or reject each proposed rule change.
+- Added settings, CVE, and threat feed FastAPI routers and Pydantic schemas.
+- Added Settings, CVE Alerts, and Threat Feeds frontend pages with navigation entries.
+- Added frontend controls for threat feed apply mode, target rulesets, source management, pending approvals, and blocked-entry search.
+- Added MCP tools for CVE alerts, CVE device inventory, threat feed status, threat feed entries, and pending threat feed approvals.
+
+### Changed
+
+- Extended the existing function-based UniFi client with device, firewall group, and firewall rule write helpers rather than introducing a new client class.
+- Seeded default Phase 2 settings and disabled default threat feed sources at API startup.
+- Updated API startup to run CVE and threat feed collectors alongside the existing UniFi poller and syslog collector.
+- Renamed the threat feed URL validator to `validate_outbound_url` because it is intentionally reused by the threat feed router.
+- Removed unused dead interval-validation code from the one-shot threat feed collector.
+
+### Security
+
+- Defaulted threat feed enforcement to `preview` mode so firewall rule changes require explicit operator approval before being pushed to UniFi.
+- Added feed URL validation to reject local, private, link-local, multicast, reserved, and metadata endpoints for custom threat feed downloads.
+- Added settings validation for booleans, polling intervals, supported UniFi rulesets, proxy URL format, and threat feed apply mode.
+
+### Validation
+
+- Python compile validation passed for API, Alembic, scanner, and MCP code.
+- Frontend production build passed with `npm run build`.
+- Frontend build emitted the existing Vite chunk-size warning; no build failure occurred.
+
 ## Unreleased - 2026-05-27
 
 ### Added

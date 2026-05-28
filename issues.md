@@ -124,6 +124,17 @@ The value text is hardcoded to `text-slate-950` regardless of the tone prop. Whe
 
 ---
 
+### ISS-009 — Firewall rule `action` value unverified against UniFi legacy API
+
+**File:** [services/api/app/collectors/threat_feed_collector.py](services/api/app/collectors/threat_feed_collector.py) (`_rule_payloads`)
+**Status:** Open
+
+The threat feed rule payload uses `"action": "drop"`. The UniFi legacy `rest/firewallrule` API likely accepts `accept`, `drop`, and `reject`, making `"drop"` correct. However, some firmware versions or legacy controller releases use `"deny"` instead. If the value is wrong, rule creation will silently succeed (201 returned) but the rule will have no effect or be misconfigured.
+
+**Verify:** After deploying to a real UniFi console, enable the threat feed and inspect the created firewall rule in the UniFi dashboard. Confirm the action is applied correctly. If the rule appears with no action or an unexpected value, change `"drop"` to `"deny"` in `_rule_payloads()`.
+
+---
+
 ## DISMISSED (false positives from review tools)
 
 - **Scanner port parameter injection** — `asyncio.create_subprocess_exec` passes args directly to `execve()` without a shell; no injection risk. Pydantic `max_length=256` is sufficient validation.

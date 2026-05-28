@@ -2,6 +2,18 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 5)
+
+### Fixed
+
+- Fixed approve/reject `onSuccess` handler discarding the returned rule's `status` field. When `apply_pending_rule` returns HTTP 200 with `status: "failed"`, the error message from `data.error` is now shown in the error banner and the rule is still removed from the pending list. Previously `setActionError(null)` was called unconditionally, so failures were silently cleared.
+- Fixed IDS/IPS false-negative on UniFi Network 10 "Detection Mode: Notify". The `mode` field is coerced to `None` when empty string (falsy), and `sensitivity` is added as a final fallback indicator — UniFi sets `sensitivity` (e.g. `"medium"`) whenever IDS/IPS is configured at any level, even detection-only mode.
+
+### Validation
+
+- Python compile validation passed for `collectors/poller.py`.
+- Frontend production build passed with `npm run build`.
+
 ## Unreleased - 2026-05-28 (session 4)
 
 ### Fixed

@@ -60,14 +60,23 @@ export function ThreatFeeds() {
     onSuccess: onActionSuccess,
     onError: onActionError
   });
+  const onRuleActionSuccess = (data: { status: string; error: string | null }) => {
+    invalidate();
+    if (data.status === "failed") {
+      setActionError(data.error ?? "Rule failed to apply to UniFi");
+    } else {
+      setActionError(null);
+    }
+  };
+
   const approve = useMutation({
     mutationFn: approveThreatFeedRule,
-    onSuccess: onActionSuccess,
+    onSuccess: onRuleActionSuccess,
     onError: onActionError
   });
   const reject = useMutation({
     mutationFn: rejectThreatFeedRule,
-    onSuccess: onActionSuccess,
+    onSuccess: onRuleActionSuccess,
     onError: onActionError
   });
 

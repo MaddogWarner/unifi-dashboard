@@ -2,6 +2,24 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 3)
+
+### Fixed
+
+- Fixed IDS/IPS enabled detection incorrectly reporting "not enabled" on UniFi Network 9.x/10.x. The poller now treats a non-null mode value (`"ids"`, `"ips"`, etc.) as evidence that IDS is active, handling firmware that returns a mode field without an explicit `enabled: true`. Added `log.info` of the raw IDS config dict to aid on-device diagnostics.
+- Fixed Spamhaus DROP v4 feed parse error ("Extra data: line 2 column 1"). The feed switched to JSONL format (one JSON object per line). The `_fetch_feed` function now falls back to line-by-line JSONL parsing when standard `json.loads` fails, leaving all other JSON feeds unchanged.
+- Fixed threat feed enforcement silently recording "applied" status when UniFi did not return a firewall rule ID. Added a missing `rule_id` guard (matching the existing `group_id` guard) that raises `ValueError` so the failure is stored visibly. Added `log.info` of the created group and rule IDs for diagnostics.
+
+### Changed
+
+- Added a Status column to the Pending Rule Changes table showing colour-coded status (`pending`, `applied`, `failed`, `rejected`) and the full error message for failed rules.
+- Restricted approve/reject buttons in the pending rules table to rows with `pending` status; resolved rows now show their final status instead.
+
+### Validation
+
+- Python compile validation passed for `collectors/poller.py`, `collectors/threat_feed_collector.py`.
+- Frontend production build passed with `npm run build`.
+
 ## Unreleased - 2026-05-28 (session 2)
 
 ### Added

@@ -91,32 +91,43 @@ export function ThreatFeeds() {
                 <th>Rule</th>
                 <th>Entries</th>
                 <th>Created</th>
+                <th>Status</th>
                 <th>Decision</th>
               </tr>
             </thead>
             <tbody>
               {(pending.data ?? []).map((rule) => (
-                <tr key={rule.id} className="border-t border-slate-100">
+                <tr key={rule.id} className="border-t border-slate-100 align-top">
                   <td className="p-2 uppercase">{rule.action}</td>
-                  <td className="font-mono text-xs">{rule.ruleset}</td>
-                  <td>{rule.rule_name}</td>
-                  <td>{rule.entry_count.toLocaleString()}</td>
-                  <td>{formatDate(rule.created_at)}</td>
+                  <td className="p-2 font-mono text-xs">{rule.ruleset}</td>
+                  <td className="p-2">{rule.rule_name}</td>
+                  <td className="p-2">{rule.entry_count.toLocaleString()}</td>
+                  <td className="p-2">{formatDate(rule.created_at)}</td>
+                  <td className="p-2">
+                    <span className={statusClass(rule.status)}>{rule.status}</span>
+                    {rule.status === "failed" && rule.error ? (
+                      <p className="mt-1 max-w-xs text-xs text-rose-700">{rule.error}</p>
+                    ) : null}
+                  </td>
                   <td className="flex gap-2 py-2">
-                    <button
-                      className="inline-flex items-center gap-1 rounded border border-emerald-300 px-2 py-1 text-sm text-emerald-700 hover:bg-emerald-50"
-                      onClick={() => approve.mutate(rule.id)}
-                    >
-                      <Check className="h-4 w-4" />
-                      Approve
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-sm text-rose-700 hover:bg-rose-50"
-                      onClick={() => reject.mutate(rule.id)}
-                    >
-                      <X className="h-4 w-4" />
-                      Reject
-                    </button>
+                    {rule.status === "pending" ? (
+                      <>
+                        <button
+                          className="inline-flex items-center gap-1 rounded border border-emerald-300 px-2 py-1 text-sm text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => approve.mutate(rule.id)}
+                        >
+                          <Check className="h-4 w-4" />
+                          Approve
+                        </button>
+                        <button
+                          className="inline-flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-sm text-rose-700 hover:bg-rose-50"
+                          onClick={() => reject.mutate(rule.id)}
+                        >
+                          <X className="h-4 w-4" />
+                          Reject
+                        </button>
+                      </>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -252,4 +263,11 @@ export function ThreatFeeds() {
 
 function formatDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString() : "-";
+}
+
+function statusClass(status: string) {
+  if (status === "applied") return "text-xs font-medium text-emerald-700";
+  if (status === "failed") return "text-xs font-medium text-rose-700";
+  if (status === "rejected") return "text-xs font-medium text-slate-400";
+  return "text-xs font-medium text-slate-600";
 }

@@ -270,6 +270,9 @@ async def _apply_change(
     rule_payload["src_firewallgroup_ids"] = [group_id]
     rule = await unifi_client.create_firewall_rule(rule_payload)
     rule_id = rule.get("_id") or rule.get("id")
+    if not rule_id:
+        raise ValueError("UniFi did not return a firewall rule ID")
+    log.info("Threat feed enforcement: group_id=%s rule_id=%s ruleset=%s chunk=%s", group_id, rule_id, ruleset, idx)
     await _record_rule(ruleset, idx, group_id, rule_id, payload_hash)
 
 

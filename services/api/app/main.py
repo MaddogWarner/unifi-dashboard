@@ -6,7 +6,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 
 from app.collectors.cve_collector import run_cve_collector
 from app.collectors.poller import run_poll_loop
@@ -54,6 +54,27 @@ DEFAULT_FEEDS = [
     },
     {"name": "Spamhaus DROP", "url": "https://www.spamhaus.org/drop/drop_v4.json"},
 ]
+ALEMBIC_VERSION_TABLE = "alembic_version"
+INITIAL_SCHEMA_TABLES = {
+    "firewall_policies",
+    "firewall_rules",
+    "networks",
+    "ids_config",
+    "threat_events",
+    "policy_snapshots",
+    "scan_results",
+    "firewall_logs",
+}
+PHASE_2_TABLES = {
+    "app_settings",
+    "device_inventory",
+    "cve_alerts",
+    "cve_device_links",
+    "threat_feed_sources",
+    "threat_feed_entries",
+    "threat_feed_rules",
+    "threat_feed_pending_rules",
+}
 
 
 async def seed_defaults() -> None:
@@ -68,8 +89,45 @@ async def seed_defaults() -> None:
         await session.commit()
 
 
+async def existing_schema_state() -> tuple[set[str], set[str]]:
+    async with engine.begin() as conn:
+        def inspect_schema(sync_conn) -> tuple[set[str], set[str]]:
+            inspector = inspect(sync_conn)
+            table_names = set(inspector.get_table_names())
+            ids_config_columns = (
+                {column["name"] for column in inspector.get_columns("ids_config")}
+                if "ids_config" in table_names
+                else set()
+            )
+            return table_names, ids_config_columns
+
+        return await conn.run_sync(inspect_schema)
+
+
+async def stamp_existing_database_if_needed(alembic_config: Config) -> None:
+    table_names, ids_config_columns = await existing_schema_state()
+    has_app_tables = bool((INITIAL_SCHEMA_TABLES | PHASE_2_TABLES) & table_names)
+    if ALEMBIC_VERSION_TABLE in table_names or not has_app_tables:
+        return
+
+    baseline_revision = (
+        "003_ids_config_raw_json"
+        if "raw_json" in ids_config_columns
+        else "002_cve_threatfeed_settings"
+        if PHASE_2_TABLES & table_names
+        else "001_initial_schema"
+    )
+    log.warning(
+        "Existing application tables found without Alembic version metadata; "
+        "stamping database at revision %s before upgrade",
+        baseline_revision,
+    )
+    await asyncio.to_thread(command.stamp, alembic_config, baseline_revision)
+
+
 async def run_migrations() -> None:
     alembic_config = Config("alembic.ini")
+    await stamp_existing_database_if_needed(alembic_config)
     await asyncio.to_thread(command.upgrade, alembic_config, "head")
     log.info("Database migrations applied")
 

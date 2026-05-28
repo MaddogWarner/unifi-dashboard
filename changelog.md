@@ -2,6 +2,17 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-28 (session 14)
+
+### Fixed
+
+- Fixed API startup failures that could surface as nginx `502 Bad Gateway` after automatic Alembic migrations were added. Existing databases created before Alembic version tracking are now detected and stamped at the appropriate baseline revision before `alembic upgrade head` runs.
+- Added defensive baseline detection for databases that already contain the latest `ids_config.raw_json` column but do not yet have an `alembic_version` row, avoiding duplicate-column migration failures.
+
+### Validation
+
+- Python syntax validation passed for API startup and Alembic migration code.
+
 ## Unreleased - 2026-05-28 (session 13)
 
 ### Fixed

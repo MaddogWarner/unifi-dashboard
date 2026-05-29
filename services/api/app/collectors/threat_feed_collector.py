@@ -29,18 +29,6 @@ THREAT_FEED_GROUP_PREFIX = "ThreatFeed-"
 THREAT_FEED_RULE_PREFIX = "Block-ThreatFeed-"
 VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
 
-# Maps legacy v1 ruleset names to destination zone names for zone-based policies.
-# Zone policies block inbound threats (source = External) from reaching the destination zone.
-# WAN_IN protects Internal; WAN_LOCAL protects Gateway; GUEST_IN protects Hotspot.
-RULESET_TO_DEST_ZONE = {
-    "WAN_IN": "Internal",
-    "WAN_LOCAL": "Gateway",
-    "LAN_IN": "Internal",
-    "LAN_LOCAL": "Gateway",
-    "LAN_OUT": "Internal",
-    "GUEST_IN": "Hotspot",
-}
-
 # Module-level probe state — set once per process on first enforcement run.
 _zone_policy_available: bool | None = None
 _zone_id_cache: dict[str, str] = {}  # zone_name → _id
@@ -637,15 +625,19 @@ async def reject_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
 async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
     use_zone_policies = await _ensure_zone_policy_probed()
     if use_zone_policies:
-        # Map legacy v1 ruleset names to destination zone names; keep actual zone names as-is.
-        # Deduplicate while preserving order.
+        # Accept only actual UniFi zone names (from the zone cache).
+        # Legacy ruleset names like WAN_IN that may still be stored in the DB are silently
+        # dropped — the Settings UI now surfaces real zone names from the zone picker.
+        await _populate_zone_cache()
         seen: set[str] = set()
         target_zones = []
         for zone in zones:
-            mapped = RULESET_TO_DEST_ZONE.get(zone, zone)
-            if mapped not in seen:
-                seen.add(mapped)
-                target_zones.append(mapped)
+            if zone not in _zone_id_cache:
+                log.warning("'%s' is not a valid UniFi zone name; skipping (re-select in Settings)", zone)
+                continue
+            if zone not in seen:
+                seen.add(zone)
+                target_zones.append(zone)
     else:
         target_zones = [zone for zone in zones if zone in VALID_RULESETS]
     async with async_session_factory() as session:
@@ -729,7 +721,8 @@ async def _cleanup_unifi_rules() -> None:
                     await _delete_firewall_rule_if_present(rule.rule_unifi_id)
                 else:
                     await _delete_zone_policy_if_present(rule.rule_unifi_id)
-            await _delete_firewall_group_if_present(rule.group_unifi_id)
+            if rule.group_unifi_id:
+                await _delete_firewall_group_if_present(rule.group_unifi_id)
         except Exception:
             log.exception("Failed to delete threat feed UniFi rule %s", rule.id)
 

@@ -448,7 +448,7 @@ async def _queue_pending_rule(
 async def _record_rule(
     ruleset: str,
     idx: int,
-    group_id: str,
+    group_id: str | None,
     rule_id: str | None,
     payload_hash: str,
 ) -> None:

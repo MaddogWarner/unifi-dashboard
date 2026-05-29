@@ -37,7 +37,7 @@ class ThreatFeedRule(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ruleset: Mapped[str] = mapped_column(String(64), nullable=False)
-    group_unifi_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    group_unifi_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     rule_unifi_id: Mapped[str | None] = mapped_column(String(128))
     chunk_index: Mapped[int] = mapped_column(Integer, default=0)
     payload_hash: Mapped[str | None] = mapped_column(String(64))

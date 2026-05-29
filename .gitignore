@@ -10,3 +10,4 @@ dist/
 pgdata/
 .venv/
 coverage/
+codex-plan.md

@@ -31,7 +31,11 @@ export function ThreatFeeds() {
     queryKey: ["threatfeed-entries", cidrSearch],
     queryFn: () => getThreatFeedEntries({ cidr: cidrSearch, limit: 100 })
   });
-  const pending = useQuery({ queryKey: ["threatfeed-pending"], queryFn: getThreatFeedPendingRules });
+  const pending = useQuery({
+    queryKey: ["threatfeed-pending"],
+    queryFn: getThreatFeedPendingRules,
+    refetchInterval: 30000
+  });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["threatfeed-status"] });
@@ -124,6 +128,11 @@ export function ThreatFeeds() {
         <h2 className="text-lg font-semibold text-slate-950">Pending Rule Changes</h2>
         {actionError ? (
           <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">{actionError}</p>
+        ) : null}
+        {pending.error ? (
+          <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {errorMessage(pending.error)}
+          </p>
         ) : null}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">

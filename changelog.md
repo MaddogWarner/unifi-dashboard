@@ -12,6 +12,7 @@ All notable project changes are recorded here.
 ### Fixed
 
 - Restored legacy threat-feed target compatibility for zone-policy enforcement. Saved/default values such as `WAN_IN` and `WAN_LOCAL` are again mapped to valid UniFi destination zones before pending approvals are queued, while real zone names and custom zones are still validated against the live UniFi zone cache.
+- Fixed Threat Feeds pending-rule table refresh timing. Manual threat-feed refresh now waits for the collector to complete before returning success, and the pending-rule table polls alongside the status card so asynchronously queued approvals appear without a page reload. Pending-rule API errors are now surfaced inline instead of looking like an empty table.
 
 ## Unreleased - 2026-05-29 (session 9)
 

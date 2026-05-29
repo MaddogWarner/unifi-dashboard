@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -195,5 +194,5 @@ async def reject_rule(pending_id: int) -> ThreatFeedPendingRule:
 
 @router.post("/refresh")
 async def refresh_feeds() -> dict[str, str | bool]:
-    asyncio.create_task(run_threat_feed_collector_once())
-    return {"ok": True, "message": "Threat feed refresh triggered"}
+    await run_threat_feed_collector_once()
+    return {"ok": True, "message": "Threat feed refresh completed"}

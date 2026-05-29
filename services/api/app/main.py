@@ -137,7 +137,19 @@ async def stamp_existing_database_if_needed(alembic_config: Config) -> None:
         "stamping database at revision %s before upgrade",
         baseline_revision,
     )
-    await asyncio.to_thread(command.stamp, alembic_config, baseline_revision)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("""
+                CREATE TABLE IF NOT EXISTS alembic_version (
+                    version_num VARCHAR(32) NOT NULL,
+                    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+                )
+            """)
+        )
+        await conn.execute(
+            text("INSERT INTO alembic_version (version_num) VALUES (:rev)"),
+            {"rev": baseline_revision},
+        )
     log.info("Database stamped at Alembic revision %s", baseline_revision)
 
 
@@ -174,7 +186,12 @@ async def fast_forward_noop_revisions(alembic_config: Config) -> str | None:
         sorted(revisions),
         target_revision,
     )
-    await asyncio.to_thread(command.stamp, alembic_config, target_revision)
+    source_revision = next(src for src in revisions if src in NOOP_FAST_FORWARD_REVISIONS)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE alembic_version SET version_num = :new WHERE version_num = :old"),
+            {"new": target_revision, "old": source_revision},
+        )
     log.info("Alembic version fast-forwarded to %s", target_revision)
     return target_revision
 

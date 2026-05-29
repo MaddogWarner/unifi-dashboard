@@ -90,6 +90,7 @@ async def seed_defaults() -> None:
 
 
 async def existing_schema_state() -> tuple[set[str], set[str]]:
+    log.info("Inspecting database schema before migrations")
     async with engine.begin() as conn:
         def inspect_schema(sync_conn) -> tuple[set[str], set[str]]:
             inspector = inspect(sync_conn)
@@ -106,8 +107,13 @@ async def existing_schema_state() -> tuple[set[str], set[str]]:
 
 async def stamp_existing_database_if_needed(alembic_config: Config) -> None:
     table_names, ids_config_columns = await existing_schema_state()
+    log.info("Database schema inspection found %s tables", len(table_names))
     has_app_tables = bool((INITIAL_SCHEMA_TABLES | PHASE_2_TABLES) & table_names)
     if ALEMBIC_VERSION_TABLE in table_names or not has_app_tables:
+        if ALEMBIC_VERSION_TABLE in table_names:
+            log.info("Alembic version table already exists; no baseline stamp required")
+        else:
+            log.info("No existing application tables found; running Alembic from base")
         return
 
     baseline_revision = (
@@ -123,21 +129,31 @@ async def stamp_existing_database_if_needed(alembic_config: Config) -> None:
         baseline_revision,
     )
     await asyncio.to_thread(command.stamp, alembic_config, baseline_revision)
+    log.info("Database stamped at Alembic revision %s", baseline_revision)
 
 
 async def run_migrations() -> None:
     alembic_config = Config("alembic.ini")
-    await stamp_existing_database_if_needed(alembic_config)
-    await asyncio.to_thread(command.upgrade, alembic_config, "head")
-    log.info("Database migrations applied")
+    try:
+        log.info("Preparing database migrations")
+        await stamp_existing_database_if_needed(alembic_config)
+        log.info("Running Alembic upgrade to head")
+        await asyncio.to_thread(command.upgrade, alembic_config, "head")
+        log.info("Database migrations applied")
+    except Exception:
+        log.exception("Database migration failed during API startup")
+        raise
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await run_migrations()
     async with engine.begin() as conn:
+        log.info("Ensuring SQLAlchemy metadata exists")
         await conn.run_sync(Base.metadata.create_all)
+    log.info("SQLAlchemy metadata check complete")
     await seed_defaults()
+    log.info("Default settings seeded")
 
     tasks = [
         asyncio.create_task(run_poll_loop()),

@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.config import settings
@@ -29,6 +29,8 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
+    connection.execute(text("SET lock_timeout = '10s'"))
+    connection.execute(text("SET statement_timeout = '60s'"))
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()

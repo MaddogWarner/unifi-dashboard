@@ -2,6 +2,27 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-29
+
+### Fixed
+
+- Added API startup migration diagnostics and PostgreSQL migration timeouts so Alembic startup failures are visible instead of appearing to hang before syslog and polling tasks start.
+- Made the `ids_config.raw_json` Alembic migration idempotent for databases where the column already exists.
+- Published API UDP syslog port `${SYSLOG_PORT:-514}` from Docker Compose so UniFi remote logging can reach the receiver.
+- Added low-noise syslog diagnostics for first received packet, first parsed firewall event, and unparsed syslog samples.
+- Added a Firewall page fallback that shows legacy `/firewall/rules` when v2 zone policies are unavailable or empty.
+
+### Changed
+
+- Firewall empty states now distinguish between missing zone policy data, available legacy rules, and missing syslog events.
+- README syslog setup now documents the Docker UDP port mapping check.
+
+### Validation
+
+- Python syntax validation passed for API startup, syslog collector, firewall router, poller, and Alembic migration code.
+- Frontend production build passed with `npm run build`.
+- Docker Compose validation could not be run locally because Docker is not installed in this environment.
+
 ## Unreleased - 2026-05-28 (session 15)
 
 ### Fixed

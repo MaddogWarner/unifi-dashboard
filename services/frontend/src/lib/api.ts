@@ -26,6 +26,21 @@ export type FirewallLog = {
   protocol: string | null;
 };
 
+export type FirewallRule = {
+  id: number;
+  unifi_id: string;
+  name: string;
+  action: string;
+  ruleset: string | null;
+  rule_index: number | null;
+  enabled: boolean;
+  src_address: string | null;
+  dst_address: string | null;
+  protocol: string | null;
+  dst_port: string | null;
+  synced_at: string;
+};
+
 export type ThreatEvent = {
   id: number;
   timestamp: string;
@@ -197,6 +212,7 @@ export const put = <T>(path: string, body?: unknown) => send<T>("PUT", path, bod
 export const del = <T>(path: string) => send<T>("DELETE", path);
 
 export const getFirewallPolicies = () => get<FirewallPolicy[]>("/firewall/policies");
+export const getFirewallRules = () => get<FirewallRule[]>("/firewall/rules");
 export const getFirewallLogs = (params = "") => get<FirewallLog[]>(`/firewall/logs${params}`);
 export const getThreats = () => get<ThreatEvent[]>("/threats/events");
 export const getIdsStatus = () => get<IdsStatus>("/threats/ids-status");

@@ -145,6 +145,12 @@ The dashboard cross-references firewall block/allow events to policies by matchi
 4. Enable the **Firewall** log category
 5. Click **Apply Changes**
 
+Docker Compose publishes UDP `${SYSLOG_PORT:-514}` from the API container to the host. Confirm the mapping after startup:
+
+```bash
+docker compose port api 514/udp
+```
+
 **Expected log format** (kernel firewall events):
 
 ```text

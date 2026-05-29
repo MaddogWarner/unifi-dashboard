@@ -20,16 +20,26 @@ _FIELD_RE = re.compile(
 
 
 class SyslogProtocol(asyncio.DatagramProtocol):
+    def __init__(self) -> None:
+        self.received_count = 0
+        self.unparsed_count = 0
+        self.parsed_count = 0
+
     def datagram_received(self, data: bytes, addr: tuple) -> None:
+        self.received_count += 1
         line = data.decode("utf-8", errors="replace").strip()
+        if self.received_count == 1:
+            log.info("Received first syslog datagram from %s:%s", addr[0], addr[1])
         asyncio.create_task(self._process(line))
 
     async def _process(self, line: str) -> None:
         rule_match = _RULE_RE.search(line)
         if not rule_match:
+            self._log_unparsed("rule marker", line)
             return
         field_match = _FIELD_RE.search(line)
         if not field_match:
+            self._log_unparsed("IP/port fields", line)
             return
         rule_name, action = rule_match.group(1), rule_match.group(2)
         async with async_session_factory() as session:
@@ -53,6 +63,19 @@ class SyslogProtocol(asyncio.DatagramProtocol):
                         raw_line=line,
                     )
                 )
+        self.parsed_count += 1
+        if self.parsed_count == 1:
+            log.info("Parsed first firewall syslog event for rule '%s'", rule_name)
+
+    def _log_unparsed(self, reason: str, line: str) -> None:
+        self.unparsed_count += 1
+        if self.unparsed_count == 1 or self.unparsed_count % 100 == 0:
+            log.warning(
+                "Ignored %s unparsed syslog datagram(s); missing %s. Sample: %s",
+                self.unparsed_count,
+                reason,
+                line[:300],
+            )
 
 
 async def start_syslog_server() -> None:
@@ -61,7 +84,7 @@ async def start_syslog_server() -> None:
         SyslogProtocol,
         local_addr=("0.0.0.0", settings.syslog_port),
     )
-    log.info("Syslog receiver listening on UDP :%s", settings.syslog_port)
+    log.info("Syslog receiver listening on UDP 0.0.0.0:%s", settings.syslog_port)
     try:
         await asyncio.get_running_loop().create_future()
     finally:

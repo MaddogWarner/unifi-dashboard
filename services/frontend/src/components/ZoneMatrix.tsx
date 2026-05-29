@@ -5,6 +5,7 @@ type Props = {
   policies: FirewallPolicy[];
   selected?: { src: string; dst: string } | null;
   onSelect?: (pair: { src: string; dst: string }) => void;
+  emptyMessage?: string;
 };
 
 function cellTone(action: string | null) {
@@ -14,13 +15,17 @@ function cellTone(action: string | null) {
   return "bg-slate-100 text-slate-600 hover:bg-slate-200";
 }
 
-export function ZoneMatrix({ policies, selected, onSelect }: Props) {
+export function ZoneMatrix({ policies, selected, onSelect, emptyMessage }: Props) {
   const zones = Array.from(
     new Set(policies.flatMap((policy) => [policy.src_zone, policy.dst_zone]).filter(Boolean) as string[])
   ).sort();
 
   if (zones.length === 0) {
-    return <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-600">No zone policy data synced yet.</div>;
+    return (
+      <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-600">
+        {emptyMessage ?? "No zone policy data synced yet."}
+      </div>
+    );
   }
 
   return (

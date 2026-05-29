@@ -20,6 +20,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       SCANNER_BASE_URL: http://scanner:8002
+    ports:
+      - "${SYSLOG_PORT:-514}:${SYSLOG_PORT:-514}/udp"
     depends_on:
       postgres:
         condition: service_healthy

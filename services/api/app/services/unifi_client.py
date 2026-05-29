@@ -242,46 +242,53 @@ async def get_zones_list() -> list[dict]:
         return []
 
 
+def _v2_policy_base(base_v1: str) -> str:
+    """Returns /proxy/network/v2/api/site/{site} from the v1 base URL."""
+    host, _, site = base_v1.rpartition("/proxy/network/api/s/")
+    return f"{host}/proxy/network/v2/api/site/{site}"
+
+
 async def zone_policy_api_available() -> bool:
-    """Returns True if /rest/firewallpolicy endpoint exists on this device."""
+    """Returns True if the v2 internal firewall-policies endpoint exists on this device."""
     base_v1, _base_v2, api_key, verify = await _load_config()
+    url = f"{_v2_policy_base(base_v1)}/firewall-policies"
     try:
-        await _get(f"{base_v1}/rest/firewallpolicy", api_key, verify)
+        await _get(url, api_key, verify)
         return True
     except httpx.HTTPStatusError as exc:
-        # 400 (InvalidObject) = collection does not exist on this firmware; 404 = explicit not-found
         if exc.response.status_code in (400, 404):
             return False
         raise
 
 
 async def get_zone_policies() -> list[dict]:
-    """Returns [] if endpoint not available (404)."""
+    """Returns [] if endpoint not available."""
     base_v1, _base_v2, api_key, verify = await _load_config()
+    url = f"{_v2_policy_base(base_v1)}/firewall-policies"
     try:
-        data = await _get(f"{base_v1}/rest/firewallpolicy", api_key, verify)
+        data = await _get(url, api_key, verify)
         return _data_items(data)
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 404:
+        if exc.response.status_code in (400, 404):
             return []
         raise
 
 
 async def create_zone_policy(payload: dict) -> dict:
     base_v1, _base_v2, api_key, verify = await _load_config()
-    data = await _request("POST", f"{base_v1}/rest/firewallpolicy", api_key, verify, payload)
+    data = await _request("POST", f"{_v2_policy_base(base_v1)}/firewall-policies", api_key, verify, payload)
     return _first_item(data)
 
 
 async def update_zone_policy(policy_id: str, payload: dict) -> dict:
     base_v1, _base_v2, api_key, verify = await _load_config()
-    data = await _request("PUT", f"{base_v1}/rest/firewallpolicy/{policy_id}", api_key, verify, payload)
+    data = await _request("PUT", f"{_v2_policy_base(base_v1)}/firewall-policies/{policy_id}", api_key, verify, payload)
     return _first_item(data)
 
 
 async def delete_zone_policy(policy_id: str) -> None:
     base_v1, _base_v2, api_key, verify = await _load_config()
-    await _request("DELETE", f"{base_v1}/rest/firewallpolicy/{policy_id}", api_key, verify)
+    await _request("DELETE", f"{_v2_policy_base(base_v1)}/firewall-policies/{policy_id}", api_key, verify)
 
 
 async def get_sites() -> list[dict]:

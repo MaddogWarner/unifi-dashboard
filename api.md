@@ -203,6 +203,66 @@ GET /proxy/network/v2/api/site/{site}/alert
 
 ---
 
+### Zone-based firewall policies (v2 internal)
+```
+GET    /proxy/network/v2/api/site/{site}/firewall-policies
+POST   /proxy/network/v2/api/site/{site}/firewall-policies
+PUT    /proxy/network/v2/api/site/{site}/firewall-policies/{id}
+DELETE /proxy/network/v2/api/site/{site}/firewall-policies/{id}
+```
+Returns raw array (GET) or raw object (POST/PUT). No envelope.
+
+**Key field requirements (confirmed via on-device POST test):**
+- All enum values are **uppercase**: `"BLOCK"`, `"ALLOW"`, `"IPV4"`, `"IPV6"`, `"BOTH"`, `"IP"`, `"SPECIFIC"`, `"ANY"`, `"ALWAYS"`
+- `source.ips` contains IP addresses **directly** — no firewall group reference
+- `source.matching_target`: `"IP"` for specific IPs, `"ANY"` for wildcard
+- `source.matching_target_type`: `"SPECIFIC"` when using explicit IPs
+- Both `source` and `destination` require a `zone_id` — no wildcard zone
+
+Minimal working POST payload (block specific IPs from External zone to DMZ):
+```json
+{
+  "name": "Block-ThreatFeed-Dmz-0",
+  "enabled": true,
+  "action": "BLOCK",
+  "ip_version": "IPV4",
+  "protocol": "all",
+  "connection_state_type": "ALL",
+  "connection_states": [],
+  "create_allow_respond": false,
+  "match_ip_sec": false,
+  "match_opposite_protocol": false,
+  "logging": true,
+  "icmp_typename": "ANY",
+  "icmp_v6_typename": "ANY",
+  "schedule": {"mode": "ALWAYS"},
+  "source": {
+    "zone_id": "<external_zone_id>",
+    "matching_target": "IP",
+    "matching_target_type": "SPECIFIC",
+    "match_opposite_ips": false,
+    "match_opposite_ports": false,
+    "port_matching_type": "ANY",
+    "ips": ["1.2.3.4", "5.6.7.8"]
+  },
+  "destination": {
+    "zone_id": "<dest_zone_id>",
+    "matching_target": "ANY",
+    "match_opposite_ports": false,
+    "port_matching_type": "ANY"
+  }
+}
+```
+
+Returns the created policy object with `_id` assigned by UniFi.
+
+DELETE returns HTTP 204 (no body).
+
+**Important:** Firewall groups (`/rest/firewallgroup`) are **not** referenced by zone policies.
+IPs must be embedded directly in `source.ips`. Groups are only used by classic rules (`/rest/firewallrule`).
+
+---
+
 ## Confirmed unavailable endpoints (Network 10.4.57)
 
 | Endpoint | HTTP status | Notes |

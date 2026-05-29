@@ -29,21 +29,22 @@ THREAT_FEED_GROUP_PREFIX = "ThreatFeed-"
 THREAT_FEED_RULE_PREFIX = "Block-ThreatFeed-"
 VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
 
-# Maps legacy v1 ruleset names to zone-based policy source zone names.
-# WAN_IN and WAN_LOCAL both map to External because in the zone policy engine
-# the distinction is made by destination zone, not ruleset name.
-RULESET_TO_ZONE = {
-    "WAN_IN": "External",
-    "WAN_LOCAL": "External",
+# Maps legacy v1 ruleset names to destination zone names for zone-based policies.
+# Zone policies block inbound threats (source = External) from reaching the destination zone.
+# WAN_IN protects Internal; WAN_LOCAL protects Gateway; GUEST_IN protects Hotspot.
+RULESET_TO_DEST_ZONE = {
+    "WAN_IN": "Internal",
+    "WAN_LOCAL": "Gateway",
     "LAN_IN": "Internal",
-    "LAN_LOCAL": "Internal",
+    "LAN_LOCAL": "Gateway",
     "LAN_OUT": "Internal",
-    "GUEST_IN": "Guest",
+    "GUEST_IN": "Hotspot",
 }
 
 # Module-level probe state — set once per process on first enforcement run.
 _zone_policy_available: bool | None = None
 _zone_id_cache: dict[str, str] = {}  # zone_name → _id
+_external_zone_id: str | None = None  # cached External zone ID (source for all threat policies)
 
 
 async def _get_setting(key: str, default: str = "") -> str:
@@ -92,42 +93,44 @@ async def _ensure_zone_policy_probed() -> bool:
             log.info("Zone-based policy API available (no existing zone policies)")
     else:
         log.warning(
-            "Zone-based policy API (/rest/firewallpolicy) not available; "
+            "Zone-based policy API (/v2/api/site/*/firewall-policies) not available; "
             "threat feed will use legacy v1 firewall rules"
         )
     return _zone_policy_available
 
 
-async def _resolve_zone_id(zone_name: str) -> str | None:
+async def _populate_zone_cache() -> None:
     global _zone_id_cache
-    if not _zone_id_cache:
-        zones = await unifi_client.get_zones_list()
-        _zone_id_cache = {
-            z["name"]: z.get("_id") or z.get("id")
-            for z in zones
-            if z.get("name")
-        }
-        if not _zone_id_cache:
-            # /rest/zone unavailable — try extracting zone IDs from existing firewall policies
-            log.info("Zone list API empty; attempting zone ID extraction from existing policies")
-            policies = await unifi_client.get_zone_policies()
-            for policy in policies:
-                for direction in ("src", "dst", "source", "destination"):
-                    obj = policy.get(direction, {})
-                    if not isinstance(obj, dict):
-                        continue
-                    zid = obj.get("zone_id") or obj.get("zoneId")
-                    zname = obj.get("zone") or obj.get("zoneName") or obj.get("zone_name")
-                    if zid and zname and zname not in _zone_id_cache:
-                        _zone_id_cache[zname] = zid
-        if _zone_id_cache:
-            log.info("Zone ID cache populated: %s", list(_zone_id_cache.keys()))
-        else:
-            log.warning("Zone list is empty; zone-based policies cannot reference zone IDs")
+    if _zone_id_cache:
+        return
+    zones = await unifi_client.get_zones_list()
+    _zone_id_cache = {
+        z["name"]: z.get("_id") or z.get("id")
+        for z in zones
+        if z.get("name")
+    }
+    if _zone_id_cache:
+        log.info("Zone ID cache populated: %s", list(_zone_id_cache.keys()))
+    else:
+        log.warning("Zone list is empty; zone-based policies cannot reference zone IDs")
+
+
+async def _resolve_zone_id(zone_name: str) -> str | None:
+    await _populate_zone_cache()
     zone_id = _zone_id_cache.get(zone_name)
     if not zone_id:
         log.warning("Zone '%s' not found in UniFi zone list; policy will be skipped", zone_name)
     return zone_id
+
+
+async def _get_external_zone_id() -> str | None:
+    global _external_zone_id
+    if _external_zone_id is None:
+        await _populate_zone_cache()
+        _external_zone_id = _zone_id_cache.get("External")
+        if not _external_zone_id:
+            log.warning("External zone not found; threat feed zone policies cannot be created")
+    return _external_zone_id
 
 
 async def _delete_firewall_rule_if_present(rule_id: str) -> None:
@@ -157,40 +160,57 @@ async def _delete_zone_policy_if_present(policy_id: str) -> None:
         log.info("Threat feed zone policy already missing id=%s", policy_id)
 
 
-def _zone_policy_payload(zone_id: str, group_id: str, zone_name: str, idx: int) -> dict:
-    """Build a zone-based firewall policy payload.
-
-    Field names are based on the UniFi Network 10 /rest/firewallpolicy pattern.
-    The exact structure is logged at INFO on first startup for on-device confirmation.
-    """
-    policy_name = f"{THREAT_FEED_RULE_PREFIX}{zone_name}-{idx}"
+def _zone_policy_payload(
+    external_zone_id: str, dest_zone_id: str, chunk: list[str], dest_zone_name: str, idx: int
+) -> dict:
+    # Confirmed structure from on-device probe of /proxy/network/v2/api/site/{site}/firewall-policies.
+    # IPs are embedded directly in source.ips — no firewall group reference needed.
+    # Source is always External zone (where inbound threats originate).
     return {
-        "name": policy_name,
+        "name": f"{THREAT_FEED_RULE_PREFIX}{dest_zone_name}-{idx}",
         "enabled": True,
-        "action": "block",
-        "ip_version": "IPv4",
-        "source": {
-            "zone_id": zone_id,
-            "firewallgroup_ids": [group_id],
-        },
-        "destination": {},
+        "action": "BLOCK",
+        "ip_version": "IPV4",
+        "protocol": "all",
+        "connection_state_type": "ALL",
+        "connection_states": [],
+        "create_allow_respond": False,
+        "match_ip_sec": False,
+        "match_opposite_protocol": False,
         "logging": True,
+        "icmp_typename": "ANY",
+        "icmp_v6_typename": "ANY",
+        "schedule": {"mode": "ALWAYS"},
+        "source": {
+            "zone_id": external_zone_id,
+            "matching_target": "IP",
+            "matching_target_type": "SPECIFIC",
+            "match_opposite_ips": False,
+            "match_opposite_ports": False,
+            "port_matching_type": "ANY",
+            "ips": chunk,
+        },
+        "destination": {
+            "zone_id": dest_zone_id,
+            "matching_target": "ANY",
+            "match_opposite_ports": False,
+            "port_matching_type": "ANY",
+        },
     }
 
 
-async def _get_or_create_zone_policy(zone_id: str, group_id: str, zone_name: str, idx: int) -> dict:
-    policy_payload = _zone_policy_payload(zone_id, group_id, zone_name, idx)
+async def _get_or_create_zone_policy(
+    external_zone_id: str, dest_zone_id: str, chunk: list[str], dest_zone_name: str, idx: int
+) -> dict:
+    policy_payload = _zone_policy_payload(external_zone_id, dest_zone_id, chunk, dest_zone_name, idx)
     policies = await unifi_client.get_zone_policies()
     existing = _find_named(policies, policy_payload["name"])
     if existing:
         policy_id = _unifi_id(existing)
         log.info("Reusing existing zone policy %s id=%s", policy_payload["name"], policy_id)
         if policy_id:
-            updated = {
-                **policy_payload,
-                "source": {**policy_payload["source"], "firewallgroup_ids": [group_id]},
-            }
-            return await unifi_client.update_zone_policy(policy_id, updated)
+            # Update the IP list in-place; all other fields stay the same.
+            return await unifi_client.update_zone_policy(policy_id, {**policy_payload, "_id": policy_id})
         return existing
     return await unifi_client.create_zone_policy(policy_payload)
 
@@ -380,10 +400,11 @@ async def _queue_pending_rule(
     entry_count: int,
     group_payload: dict,
     rule_payload: dict,
+    chunk: list[str],
     existing: ThreatFeedRule | None,
     payload_hash: str,
 ) -> None:
-    payload = {"group": group_payload, "rule": rule_payload}
+    payload = {"group": group_payload, "rule": rule_payload, "chunk": chunk}
     async with async_session_factory() as session:
         # Remove stale failed/rejected records with the same key to avoid unique constraint
         # violations when a subsequent approval attempt also fails.
@@ -473,6 +494,7 @@ async def _apply_change(
 ) -> None:
     group_payload = payload["group"]
     rule_payload = payload["rule"]
+    chunk: list[str] = payload.get("chunk", [])
     group_id = group_unifi_id or (existing.group_unifi_id if existing else None)
     rule_id = rule_unifi_id or (existing.rule_unifi_id if existing else None)
     if action == "delete":
@@ -487,6 +509,42 @@ async def _apply_change(
         if existing:
             await _delete_record(existing.id)
         return
+    use_zone_policies = await _ensure_zone_policy_probed()
+    if use_zone_policies:
+        # Zone policies embed IPs directly — no firewall group needed.
+        external_zone_id = await _get_external_zone_id()
+        dest_zone_id = await _resolve_zone_id(ruleset)
+        if not external_zone_id or not dest_zone_id:
+            log.warning(
+                "Zone IDs not resolved (external=%s dest=%s); skipping zone policy for %s chunk %s",
+                external_zone_id,
+                dest_zone_id,
+                ruleset,
+                idx,
+            )
+            return
+        if action == "update":
+            # Update just replaces the IP list via a full PUT.
+            if rule_id:
+                policy = await _get_or_create_zone_policy(
+                    external_zone_id, dest_zone_id, chunk, ruleset, idx
+                )
+                rule_id = _unifi_id(policy)
+            await _record_rule(ruleset, idx, None, rule_id, payload_hash)
+            return
+        policy = await _get_or_create_zone_policy(
+            external_zone_id, dest_zone_id, chunk, ruleset, idx
+        )
+        rule_id = _unifi_id(policy)
+        log.info(
+            "Threat feed enforcement (zone policy): rule_id=%s zone=%s chunk=%s",
+            rule_id,
+            ruleset,
+            idx,
+        )
+        await _record_rule(ruleset, idx, None, rule_id, payload_hash)
+        return
+    # Classic rules path (fallback when zone policy API unavailable).
     if action == "update":
         if not group_id:
             raise ValueError("Cannot update a threat feed group without a UniFi group ID")
@@ -497,26 +555,12 @@ async def _apply_change(
     group_id = _unifi_id(group)
     if not group_id:
         raise ValueError("UniFi did not return a firewall group ID")
-    use_zone_policies = await _ensure_zone_policy_probed()
-    if use_zone_policies:
-        zone_id = await _resolve_zone_id(ruleset)
-        if zone_id:
-            policy = await _get_or_create_zone_policy(zone_id, group_id, ruleset, idx)
-            rule_id = _unifi_id(policy)
-        else:
-            rule_id = None
-            log.warning(
-                "Zone '%s' not resolved; zone policy not created for chunk %s (group created)",
-                ruleset,
-                idx,
-            )
-    else:
-        rule = await _get_or_create_firewall_rule(rule_payload, group_id)
-        rule_id = _unifi_id(rule)
-        if not rule_id:
-            raise ValueError("UniFi did not return a firewall rule ID")
+    rule = await _get_or_create_firewall_rule(rule_payload, group_id)
+    rule_id = _unifi_id(rule)
+    if not rule_id:
+        raise ValueError("UniFi did not return a firewall rule ID")
     log.info(
-        "Threat feed enforcement: group_id=%s rule_id=%s ruleset=%s chunk=%s",
+        "Threat feed enforcement (classic rule): group_id=%s rule_id=%s ruleset=%s chunk=%s",
         group_id,
         rule_id,
         ruleset,
@@ -593,11 +637,12 @@ async def reject_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
 async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
     use_zone_policies = await _ensure_zone_policy_probed()
     if use_zone_policies:
-        # Map v1 ruleset names to zone names; keep unknown names as-is; deduplicate preserving order.
+        # Map legacy v1 ruleset names to destination zone names; keep actual zone names as-is.
+        # Deduplicate while preserving order.
         seen: set[str] = set()
         target_zones = []
         for zone in zones:
-            mapped = RULESET_TO_ZONE.get(zone, zone)
+            mapped = RULESET_TO_DEST_ZONE.get(zone, zone)
             if mapped not in seen:
                 seen.add(mapped)
                 target_zones.append(mapped)
@@ -621,7 +666,7 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
                     ruleset=rule.ruleset,
                     idx=rule.chunk_index,
                     action="delete",
-                    payload={"group": group_payload, "rule": rule_payload},
+                    payload={"group": group_payload, "rule": rule_payload, "chunk": []},
                     existing=rule,
                     group_unifi_id=rule.group_unifi_id,
                     rule_unifi_id=rule.rule_unifi_id,
@@ -635,6 +680,7 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
                     entry_count=0,
                     group_payload=group_payload,
                     rule_payload=rule_payload,
+                    chunk=[],
                     existing=rule,
                     payload_hash=payload_hash,
                 )
@@ -642,8 +688,8 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
     for zone in target_zones:
         for idx, chunk in enumerate(chunks):
             group_payload, rule_payload = _rule_payloads(zone, idx, chunk)
-            payload = {"group": group_payload, "rule": rule_payload}
-            payload_hash = _hash_payload(payload)
+            payload = {"group": group_payload, "rule": rule_payload, "chunk": chunk}
+            payload_hash = _hash_payload({"group": group_payload, "rule": rule_payload})
             existing = existing_by_key.get((zone, idx))
             if existing and existing.payload_hash == payload_hash:
                 continue
@@ -667,6 +713,7 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
                     entry_count=len(chunk),
                     group_payload=group_payload,
                     rule_payload=rule_payload,
+                    chunk=chunk,
                     existing=existing,
                     payload_hash=payload_hash,
                 )

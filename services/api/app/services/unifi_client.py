@@ -200,7 +200,13 @@ async def get_ids_config() -> dict:
 
 async def get_threat_events(limit: int = 500) -> list[dict]:
     base_v1, _base_v2, api_key, verify = await _load_config()
-    data = await _get(f"{base_v1}/stat/event?_limit={limit}", api_key, verify)
+    try:
+        data = await _get(f"{base_v1}/stat/event?_limit={limit}", api_key, verify)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            log.warning("stat/event endpoint not available; threat events will not be collected")
+            return []
+        raise
     events = data.get("data", [])
     return [event for event in events if event.get("key", "").startswith("EVT_IPS_")]
 

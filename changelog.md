@@ -2,6 +2,12 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-29 (session 7)
+
+### Fixed
+
+- Fixed zone picker showing a static 6-item fallback list (missing custom zones like IoT Smart Home). `/api/v1/networks/zones` now falls back to distinct zone names stored in the `networks` DB table (populated each poll cycle from UniFi network configuration) when the UniFi zone list API returns empty. The Settings page no longer has a hardcoded fallback list — it shows all zones returned by the endpoint or an error message if the connection is unreachable.
+
 ## Unreleased - 2026-05-29 (session 6)
 
 ### Fixed

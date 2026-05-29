@@ -17,10 +17,17 @@ async def list_networks(db: AsyncSession = Depends(get_db)) -> list[NetworkOut]:
 
 
 @router.get("/zones")
-async def list_zones() -> list[dict]:
+async def list_zones(db: AsyncSession = Depends(get_db)) -> list[dict]:
     zones = await unifi_client.get_zones_list()
-    return [
+    result = [
         {"id": z.get("_id") or z.get("id"), "name": z["name"]}
         for z in zones
         if z.get("name")
     ]
+    if not result:
+        # Fall back to distinct zone names stored against networks in the DB
+        rows = await db.scalars(
+            select(Network.zone).where(Network.zone.isnot(None)).distinct()
+        )
+        result = [{"id": None, "name": name} for name in sorted(rows.all()) if name]
+    return result

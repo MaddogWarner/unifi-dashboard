@@ -4,14 +4,6 @@ import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
 import { getSettings, getZones, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
 
-const FALLBACK_ZONES = [
-  ["External", "External"],
-  ["Internal", "Internal"],
-  ["Gateway", "Gateway"],
-  ["VPN", "VPN"],
-  ["Hotspot", "Hotspot"],
-  ["DMZ", "DMZ"],
-];
 
 const defaults: Record<string, string> = {
   "unifi.host": "",
@@ -286,22 +278,9 @@ export function Settings() {
               ))}
             </div>
           ) : (
-            <>
-              {zonesQuery.isSuccess && zonesQuery.data.length === 0 && (
-                <p className="mt-1 text-xs text-slate-400">Zone list unavailable — using default rulesets</p>
-              )}
-              <div className="mt-2 grid gap-2 md:grid-cols-3">
-                {FALLBACK_ZONES.map(([zone, label]) => (
-                  <label key={zone} className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm">
-                    <input type="checkbox" checked={zones.includes(zone)} onChange={() => toggleZone(zone)} />
-                    <span>
-                      {label}
-                      <span className="ml-2 font-mono text-xs text-slate-500">{zone}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </>
+            <p className="mt-2 text-xs text-slate-400">
+              Zone list unavailable — check UniFi connection settings and ensure the device is reachable.
+            </p>
           )}
         </fieldset>
       </section>

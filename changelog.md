@@ -2,6 +2,40 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-29 (session 5)
+
+### Added
+
+- Added zone-based firewall policy creation for threat feed enforcement. On first run the API probes `/rest/firewallpolicy`; if available, block policies are created in the zone-based Policy Engine (visible and manageable in UniFi → Policy Engine) instead of the legacy classic rules system.
+- Added `/rest/zone` querying via `get_zones_list()` in `unifi_client.py`. Zone names and IDs are cached per process for efficient policy creation.
+- Added `GET /api/v1/networks/zones` endpoint that returns available UniFi zone names and IDs for the frontend.
+- Added dynamic zone picker to the Settings page: zone list is fetched from UniFi at page load, showing actual zone names (e.g. External, Internal, IoT Smart Home) instead of hardcoded v1 ruleset labels. Falls back to the original WAN_IN/WAN_LOCAL/LAN_IN checkbox list if the zone API is unavailable.
+
+### Changed
+
+- `threat_feed.zones` setting now accepts any non-empty string array (previously restricted to fixed v1 ruleset names). The collector maps v1 names to zone names automatically, so existing settings migrate without reconfiguration.
+- When zone policies are available, v1 ruleset names (WAN_IN, WAN_LOCAL) are mapped to their zone equivalents and deduplicated before enforcement — WAN_IN + WAN_LOCAL both map to the External zone, creating one policy per chunk instead of two.
+- `_cleanup_unifi_rules()` now sweeps orphaned zone policies (prefix `Block-ThreatFeed-`) in addition to classic firewall rules, ensuring complete cleanup on disable.
+- Delete path in `_apply_change()` now routes to `delete_zone_policy` vs `delete_firewall_rule` based on whether the stored ruleset key is a v1 name or a zone name, handling the mixed state during migration.
+
+### Validation
+
+- Python syntax validation passed for `unifi_client.py`, `threat_feed_collector.py`, `networks.py`, `settings.py`.
+- Frontend production build passed with `npm run build`.
+
+## Unreleased - 2026-05-29 (session 4)
+
+### Fixed
+
+- Fixed assessment endpoint returning HTTP 500 on a database with prior scan results. Pydantic v2 could not validate `AssessmentEvidence` dataclass instances against `AssessmentEvidenceOut` without `from_attributes=True`; added `model_config = ConfigDict(from_attributes=True)` to `AssessmentEvidenceOut` in `schemas/assessment.py`.
+- Fixed `stat/event` 404 errors being logged as ERROR on every poll cycle. UDR 5G Max running Network 10.4.57 does not support this endpoint. `get_threat_events()` now catches 404, logs a single WARNING, and returns an empty list — matching the existing graceful degradation pattern used by `get_firewall_policies()` and `get_port_forwards()`.
+- Fixed syslog collector flooding logs with WARNING every 100 non-firewall datagrams. The UDR forwards all syslog categories (mDNS, mcad, kernel, systemd), not just firewall events. `_log_unparsed()` now emits one WARNING on first occurrence with an explanatory message, then DEBUG at every 10,000 messages.
+
+### Validation
+
+- Python syntax validation confirmed for `schemas/assessment.py`, `services/unifi_client.py`, and `collectors/syslog.py`.
+- All three commits pushed to `origin/main`; CI pipeline will rebuild and publish the API image.
+
 ## Unreleased - 2026-05-29 (session 3)
 
 ### Fixed

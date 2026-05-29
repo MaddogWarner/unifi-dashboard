@@ -25,7 +25,6 @@ VALID_SETTINGS = {
     "http_proxy.enabled",
     "http_proxy.url",
 }
-VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
 
 
 def _validate_settings(settings: dict[str, str]) -> None:
@@ -68,8 +67,8 @@ def _validate_settings(settings: dict[str, str]) -> None:
             zones = json.loads(settings["threat_feed.zones"])
         except json.JSONDecodeError as exc:
             raise HTTPException(400, "threat_feed.zones must be a JSON array") from exc
-        if not isinstance(zones, list) or any(zone not in VALID_RULESETS for zone in zones):
-            raise HTTPException(400, "threat_feed.zones contains an unsupported ruleset")
+        if not isinstance(zones, list) or not all(isinstance(z, str) and z.strip() for z in zones):
+            raise HTTPException(400, "threat_feed.zones must be a JSON array of non-empty strings")
     if "http_proxy.url" in settings and settings["http_proxy.url"]:
         parsed = urlparse(settings["http_proxy.url"])
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:

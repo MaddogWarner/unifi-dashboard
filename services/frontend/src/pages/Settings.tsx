@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
-import { getSettings, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
+import { getSettings, getZones, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
 
-const ruleSets = [
+const FALLBACK_ZONES = [
   ["WAN_IN", "WAN Inbound"],
   ["WAN_LOCAL", "WAN Local"],
   ["LAN_IN", "LAN Inbound"],
@@ -31,6 +31,7 @@ const defaults: Record<string, string> = {
 export function Settings() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
+  const zonesQuery = useQuery({ queryKey: ["networks-zones"], queryFn: getZones, staleTime: 60_000 });
   const [draft, setDraft] = useState(defaults);
   const [showKey, setShowKey] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -267,18 +268,41 @@ export function Settings() {
           </div>
         </div>
         <fieldset className="mt-4">
-          <legend className="text-sm font-medium text-slate-700">Target rulesets</legend>
-          <div className="mt-2 grid gap-2 md:grid-cols-3">
-            {ruleSets.map(([zone, label]) => (
-              <label key={zone} className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm">
-                <input type="checkbox" checked={zones.includes(zone)} onChange={() => toggleZone(zone)} />
-                <span>
-                  {label}
-                  <span className="ml-2 font-mono text-xs text-slate-500">{zone}</span>
-                </span>
-              </label>
-            ))}
-          </div>
+          <legend className="text-sm font-medium text-slate-700">
+            Target zones
+            {zonesQuery.isSuccess && zonesQuery.data.length > 0 && (
+              <span className="ml-2 text-xs font-normal text-slate-400">(from UniFi)</span>
+            )}
+          </legend>
+          {zonesQuery.isLoading ? (
+            <p className="mt-2 text-xs text-slate-400">Loading zones…</p>
+          ) : zonesQuery.isSuccess && zonesQuery.data.length > 0 ? (
+            <div className="mt-2 grid gap-2 md:grid-cols-3">
+              {zonesQuery.data.map((zone) => (
+                <label key={zone.name} className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm">
+                  <input type="checkbox" checked={zones.includes(zone.name)} onChange={() => toggleZone(zone.name)} />
+                  <span>{zone.name}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <>
+              {zonesQuery.isSuccess && zonesQuery.data.length === 0 && (
+                <p className="mt-1 text-xs text-slate-400">Zone list unavailable — using default rulesets</p>
+              )}
+              <div className="mt-2 grid gap-2 md:grid-cols-3">
+                {FALLBACK_ZONES.map(([zone, label]) => (
+                  <label key={zone} className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm">
+                    <input type="checkbox" checked={zones.includes(zone)} onChange={() => toggleZone(zone)} />
+                    <span>
+                      {label}
+                      <span className="ml-2 font-mono text-xs text-slate-500">{zone}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
         </fieldset>
       </section>
       {save.error ? <p className="text-sm text-rose-700">{String(save.error)}</p> : null}

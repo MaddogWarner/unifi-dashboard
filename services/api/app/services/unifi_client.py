@@ -222,6 +222,60 @@ async def get_zones() -> list[dict]:
         raise
 
 
+async def get_zones_list() -> list[dict]:
+    """Returns zone list from /rest/zone; returns [] if endpoint not available (404)."""
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    try:
+        data = await _get(f"{base_v1}/rest/zone", api_key, verify)
+        return _data_items(data)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            log.warning("Zone list API not available (/rest/zone returned 404)")
+            return []
+        raise
+
+
+async def zone_policy_api_available() -> bool:
+    """Returns True if /rest/firewallpolicy endpoint exists on this device."""
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    try:
+        await _get(f"{base_v1}/rest/firewallpolicy", api_key, verify)
+        return True
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return False
+        raise
+
+
+async def get_zone_policies() -> list[dict]:
+    """Returns [] if endpoint not available (404)."""
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    try:
+        data = await _get(f"{base_v1}/rest/firewallpolicy", api_key, verify)
+        return _data_items(data)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return []
+        raise
+
+
+async def create_zone_policy(payload: dict) -> dict:
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    data = await _request("POST", f"{base_v1}/rest/firewallpolicy", api_key, verify, payload)
+    return _first_item(data)
+
+
+async def update_zone_policy(policy_id: str, payload: dict) -> dict:
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    data = await _request("PUT", f"{base_v1}/rest/firewallpolicy/{policy_id}", api_key, verify, payload)
+    return _first_item(data)
+
+
+async def delete_zone_policy(policy_id: str) -> None:
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    await _request("DELETE", f"{base_v1}/rest/firewallpolicy/{policy_id}", api_key, verify)
+
+
 async def get_sites() -> list[dict]:
     _base_v1, base_v2, api_key, verify = await _load_config()
     # sites endpoint is at the v2 root (no site segment) — strip the site suffix

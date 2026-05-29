@@ -29,6 +29,22 @@ THREAT_FEED_GROUP_PREFIX = "ThreatFeed-"
 THREAT_FEED_RULE_PREFIX = "Block-ThreatFeed-"
 VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
 
+# Maps legacy v1 ruleset names to zone-based policy source zone names.
+# WAN_IN and WAN_LOCAL both map to External because in the zone policy engine
+# the distinction is made by destination zone, not ruleset name.
+RULESET_TO_ZONE = {
+    "WAN_IN": "External",
+    "WAN_LOCAL": "External",
+    "LAN_IN": "Internal",
+    "LAN_LOCAL": "Internal",
+    "LAN_OUT": "Internal",
+    "GUEST_IN": "Guest",
+}
+
+# Module-level probe state — set once per process on first enforcement run.
+_zone_policy_available: bool | None = None
+_zone_id_cache: dict[str, str] = {}  # zone_name → _id
+
 
 async def _get_setting(key: str, default: str = "") -> str:
     async with async_session_factory() as session:
@@ -60,6 +76,47 @@ def _is_not_found(exc: Exception) -> bool:
     return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 404
 
 
+async def _ensure_zone_policy_probed() -> bool:
+    global _zone_policy_available
+    if _zone_policy_available is not None:
+        return _zone_policy_available
+    _zone_policy_available = await unifi_client.zone_policy_api_available()
+    if _zone_policy_available:
+        policies = await unifi_client.get_zone_policies()
+        if policies:
+            log.info(
+                "Zone-based policy API available; first existing policy structure: %s",
+                json.dumps(policies[0], default=str),
+            )
+        else:
+            log.info("Zone-based policy API available (no existing zone policies)")
+    else:
+        log.warning(
+            "Zone-based policy API (/rest/firewallpolicy) not available; "
+            "threat feed will use legacy v1 firewall rules"
+        )
+    return _zone_policy_available
+
+
+async def _resolve_zone_id(zone_name: str) -> str | None:
+    global _zone_id_cache
+    if not _zone_id_cache:
+        zones = await unifi_client.get_zones_list()
+        _zone_id_cache = {
+            z["name"]: z.get("_id") or z.get("id")
+            for z in zones
+            if z.get("name")
+        }
+        if _zone_id_cache:
+            log.info("Zone ID cache populated: %s", list(_zone_id_cache.keys()))
+        else:
+            log.warning("Zone list is empty; zone-based policies cannot reference zone IDs")
+    zone_id = _zone_id_cache.get(zone_name)
+    if not zone_id:
+        log.warning("Zone '%s' not found in UniFi zone list; policy will be skipped", zone_name)
+    return zone_id
+
+
 async def _delete_firewall_rule_if_present(rule_id: str) -> None:
     try:
         await unifi_client.delete_firewall_rule(rule_id)
@@ -76,6 +133,53 @@ async def _delete_firewall_group_if_present(group_id: str) -> None:
         if not _is_not_found(exc):
             raise
         log.info("Threat feed UniFi group already missing id=%s", group_id)
+
+
+async def _delete_zone_policy_if_present(policy_id: str) -> None:
+    try:
+        await unifi_client.delete_zone_policy(policy_id)
+    except Exception as exc:
+        if not _is_not_found(exc):
+            raise
+        log.info("Threat feed zone policy already missing id=%s", policy_id)
+
+
+def _zone_policy_payload(zone_id: str, group_id: str, zone_name: str, idx: int) -> dict:
+    """Build a zone-based firewall policy payload.
+
+    Field names are based on the UniFi Network 10 /rest/firewallpolicy pattern.
+    The exact structure is logged at INFO on first startup for on-device confirmation.
+    """
+    policy_name = f"{THREAT_FEED_RULE_PREFIX}{zone_name}-{idx}"
+    return {
+        "name": policy_name,
+        "enabled": True,
+        "action": "block",
+        "ip_version": "IPv4",
+        "source": {
+            "zone_id": zone_id,
+            "firewallgroup_ids": [group_id],
+        },
+        "destination": {},
+        "logging": True,
+    }
+
+
+async def _get_or_create_zone_policy(zone_id: str, group_id: str, zone_name: str, idx: int) -> dict:
+    policy_payload = _zone_policy_payload(zone_id, group_id, zone_name, idx)
+    policies = await unifi_client.get_zone_policies()
+    existing = _find_named(policies, policy_payload["name"])
+    if existing:
+        policy_id = _unifi_id(existing)
+        log.info("Reusing existing zone policy %s id=%s", policy_payload["name"], policy_id)
+        if policy_id:
+            updated = {
+                **policy_payload,
+                "source": {**policy_payload["source"], "firewallgroup_ids": [group_id]},
+            }
+            return await unifi_client.update_zone_policy(policy_id, updated)
+        return existing
+    return await unifi_client.create_zone_policy(policy_payload)
 
 
 def validate_outbound_url(url: str) -> None:
@@ -360,7 +464,11 @@ async def _apply_change(
     rule_id = rule_unifi_id or (existing.rule_unifi_id if existing else None)
     if action == "delete":
         if rule_id:
-            await _delete_firewall_rule_if_present(rule_id)
+            # Records with a v1 ruleset name used classic rules; others used zone policies.
+            if ruleset in VALID_RULESETS:
+                await _delete_firewall_rule_if_present(rule_id)
+            else:
+                await _delete_zone_policy_if_present(rule_id)
         if group_id:
             await _delete_firewall_group_if_present(group_id)
         if existing:
@@ -376,10 +484,24 @@ async def _apply_change(
     group_id = _unifi_id(group)
     if not group_id:
         raise ValueError("UniFi did not return a firewall group ID")
-    rule = await _get_or_create_firewall_rule(rule_payload, group_id)
-    rule_id = _unifi_id(rule)
-    if not rule_id:
-        raise ValueError("UniFi did not return a firewall rule ID")
+    use_zone_policies = await _ensure_zone_policy_probed()
+    if use_zone_policies:
+        zone_id = await _resolve_zone_id(ruleset)
+        if zone_id:
+            policy = await _get_or_create_zone_policy(zone_id, group_id, ruleset, idx)
+            rule_id = _unifi_id(policy)
+        else:
+            rule_id = None
+            log.warning(
+                "Zone '%s' not resolved; zone policy not created for chunk %s (group created)",
+                ruleset,
+                idx,
+            )
+    else:
+        rule = await _get_or_create_firewall_rule(rule_payload, group_id)
+        rule_id = _unifi_id(rule)
+        if not rule_id:
+            raise ValueError("UniFi did not return a firewall rule ID")
     log.info(
         "Threat feed enforcement: group_id=%s rule_id=%s ruleset=%s chunk=%s",
         group_id,
@@ -456,7 +578,18 @@ async def reject_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
 
 
 async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
-    target_zones = [zone for zone in zones if zone in VALID_RULESETS]
+    use_zone_policies = await _ensure_zone_policy_probed()
+    if use_zone_policies:
+        # Map v1 ruleset names to zone names; keep unknown names as-is; deduplicate preserving order.
+        seen: set[str] = set()
+        target_zones = []
+        for zone in zones:
+            mapped = RULESET_TO_ZONE.get(zone, zone)
+            if mapped not in seen:
+                seen.add(mapped)
+                target_zones.append(mapped)
+    else:
+        target_zones = [zone for zone in zones if zone in VALID_RULESETS]
     async with async_session_factory() as session:
         rows = (await session.scalars(select(ThreatFeedEntry))).all()
         existing_rules = (await session.scalars(select(ThreatFeedRule))).all()
@@ -532,16 +665,27 @@ async def _cleanup_unifi_rules() -> None:
     for rule in rules:
         try:
             if rule.rule_unifi_id:
-                await _delete_firewall_rule_if_present(rule.rule_unifi_id)
+                if rule.ruleset in VALID_RULESETS:
+                    await _delete_firewall_rule_if_present(rule.rule_unifi_id)
+                else:
+                    await _delete_zone_policy_if_present(rule.rule_unifi_id)
             await _delete_firewall_group_if_present(rule.group_unifi_id)
         except Exception:
             log.exception("Failed to delete threat feed UniFi rule %s", rule.id)
 
+    # Sweep for orphaned classic rules
     for rule in await unifi_client.get_firewall_rules():
         rule_id = _unifi_id(rule)
         if rule_id and str(rule.get("name", "")).startswith(THREAT_FEED_RULE_PREFIX):
             await _delete_firewall_rule_if_present(rule_id)
 
+    # Sweep for orphaned zone policies
+    for policy in await unifi_client.get_zone_policies():
+        policy_id = _unifi_id(policy)
+        if policy_id and str(policy.get("name", "")).startswith(THREAT_FEED_RULE_PREFIX):
+            await _delete_zone_policy_if_present(policy_id)
+
+    # Sweep for orphaned groups
     for group in await unifi_client.get_firewall_groups():
         group_id = _unifi_id(group)
         if group_id and str(group.get("name", "")).startswith(THREAT_FEED_GROUP_PREFIX):

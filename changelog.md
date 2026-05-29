@@ -9,6 +9,10 @@ All notable project changes are recorded here.
 - Added a global threat-feed direction mode setting with `inbound` default and `bidirectional` option. Bidirectional mode keeps existing External-to-zone block policies and adds matching zone-to-External outbound block policies with threat-feed IPs matched on the destination side.
 - Added rule direction tracking to `threat_feed_rules` and `threat_feed_pending_rules`, including Alembic migration 008, API status output, pending-rule output, settings validation, and Settings/Threat Feeds UI support.
 
+### Fixed
+
+- Restored legacy threat-feed target compatibility for zone-policy enforcement. Saved/default values such as `WAN_IN` and `WAN_LOCAL` are again mapped to valid UniFi destination zones before pending approvals are queued, while real zone names and custom zones are still validated against the live UniFi zone cache.
+
 ## Unreleased - 2026-05-29 (session 9)
 
 ### Fixed

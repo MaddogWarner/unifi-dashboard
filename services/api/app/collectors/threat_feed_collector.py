@@ -28,6 +28,14 @@ THREAT_FEED_RULE_INDEX_START = 20000
 THREAT_FEED_GROUP_PREFIX = "ThreatFeed-"
 THREAT_FEED_RULE_PREFIX = "Block-ThreatFeed-"
 VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
+RULESET_TO_DEST_ZONE = {
+    "WAN_IN": ("Internal", "LAN"),
+    "WAN_LOCAL": ("Gateway",),
+    "LAN_IN": ("Internal", "LAN"),
+    "LAN_OUT": ("Internal", "LAN"),
+    "LAN_LOCAL": ("Gateway", "Internal", "LAN"),
+    "GUEST_IN": ("Hotspot", "Guest"),
+}
 INBOUND_DIRECTION = "inbound"
 OUTBOUND_DIRECTION = "outbound"
 VALID_RULE_DIRECTIONS = {INBOUND_DIRECTION, OUTBOUND_DIRECTION}
@@ -123,6 +131,24 @@ async def _get_external_zone_id() -> str | None:
         if not _external_zone_id:
             log.warning("External zone not found; threat feed zone policies cannot be created")
     return _external_zone_id
+
+
+def _normalise_target_zones(zones: list[str], available_zones: set[str]) -> list[str]:
+    seen: set[str] = set()
+    target_zones = []
+    for zone in zones:
+        candidates = RULESET_TO_DEST_ZONE.get(zone, (zone,))
+        mapped = next((candidate for candidate in candidates if candidate in available_zones), None)
+        if not mapped:
+            log.warning(
+                "'%s' does not map to a valid UniFi zone; skipping (re-select in Settings)",
+                zone,
+            )
+            continue
+        if mapped not in seen:
+            seen.add(mapped)
+            target_zones.append(mapped)
+    return target_zones
 
 
 async def _delete_firewall_rule_if_present(rule_id: str) -> None:
@@ -683,19 +709,8 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str, direction_mode: str
         raise ValueError("threat_feed.direction_mode must be inbound or bidirectional")
     use_zone_policies = await _ensure_zone_policy_probed()
     if use_zone_policies:
-        # Accept only actual UniFi zone names (from the zone cache).
-        # Legacy ruleset names like WAN_IN that may still be stored in the DB are silently
-        # dropped — the Settings UI now surfaces real zone names from the zone picker.
         await _populate_zone_cache()
-        seen: set[str] = set()
-        target_zones = []
-        for zone in zones:
-            if zone not in _zone_id_cache:
-                log.warning("'%s' is not a valid UniFi zone name; skipping (re-select in Settings)", zone)
-                continue
-            if zone not in seen:
-                seen.add(zone)
-                target_zones.append(zone)
+        target_zones = _normalise_target_zones(zones, set(_zone_id_cache))
     else:
         if direction_mode == "bidirectional":
             log.warning(

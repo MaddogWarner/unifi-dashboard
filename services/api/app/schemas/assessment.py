@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AssessmentEvidenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     type: str
     target_ip: str | None = None
     port: int | None = None

@@ -2,6 +2,14 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-29 (session 3)
+
+### Fixed
+
+- Hotfixed API startup blocking during `004_firewall_port_forwards` by making the additive Alembic revision a fast no-op. The optional port-forward table is now created by the existing SQLAlchemy metadata safety net after migrations complete.
+- Made assessment generation tolerate an unavailable port-forward evidence table during rollout and continue with scan/WAN-rule evidence instead of failing the full report.
+- Added an explicit application startup completion log after background collectors are started.
+
 ## Unreleased - 2026-05-29 (session 2)
 
 ### Added

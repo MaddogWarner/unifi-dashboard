@@ -166,6 +166,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(run_cve_collector()),
         asyncio.create_task(run_threat_feed_collector()),
     ]
+    log.info("Application startup complete; background collectors started")
     yield
     for task in tasks:
         task.cancel()

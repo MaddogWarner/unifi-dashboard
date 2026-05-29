@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -21,7 +22,11 @@ async def assessment(db: AsyncSession = Depends(get_db)) -> AssessmentReportOut:
     try:
         policies = list((await db.scalars(select(FirewallPolicy))).all())
         rules = list((await db.scalars(select(FirewallRule))).all())
-        port_forwards = list((await db.scalars(select(FirewallPortForward))).all())
+        try:
+            port_forwards = list((await db.scalars(select(FirewallPortForward))).all())
+        except SQLAlchemyError:
+            log.exception("Port-forward evidence table unavailable; continuing assessment without it")
+            port_forwards = []
         networks = list((await db.scalars(select(Network))).all())
         ids_config = await db.scalar(select(IdsConfig).order_by(IdsConfig.synced_at.desc()).limit(1))
         last_scan = await db.scalar(

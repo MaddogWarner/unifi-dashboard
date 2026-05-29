@@ -6,7 +6,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, select, text
 
 from app.collectors.cve_collector import run_cve_collector
 from app.collectors.poller import run_poll_loop
@@ -78,6 +78,9 @@ PHASE_2_TABLES = {
 PHASE_3_TABLES = {
     "firewall_port_forwards",
 }
+NOOP_FAST_FORWARD_REVISIONS = {
+    "003_ids_config_raw_json": "004_firewall_port_forwards",
+}
 
 
 async def seed_defaults() -> None:
@@ -137,11 +140,45 @@ async def stamp_existing_database_if_needed(alembic_config: Config) -> None:
     log.info("Database stamped at Alembic revision %s", baseline_revision)
 
 
+async def current_alembic_revisions() -> set[str]:
+    async with engine.begin() as conn:
+        result = await conn.execute(text(f"SELECT version_num FROM {ALEMBIC_VERSION_TABLE}"))
+        return {str(row.version_num) for row in result}
+
+
+async def fast_forward_noop_revisions(alembic_config: Config) -> None:
+    table_names, _ = await existing_schema_state()
+    if ALEMBIC_VERSION_TABLE not in table_names:
+        return
+
+    revisions = await current_alembic_revisions()
+    fast_forward_targets = {
+        target for source, target in NOOP_FAST_FORWARD_REVISIONS.items() if source in revisions
+    }
+    if not fast_forward_targets:
+        return
+
+    if len(fast_forward_targets) > 1:
+        targets = sorted(fast_forward_targets)
+        raise RuntimeError(f"Ambiguous Alembic fast-forward targets: {targets}")
+
+    target_revision = fast_forward_targets.pop()
+    log.warning(
+        "Fast-forwarding Alembic version from %s to %s before upgrade; "
+        "the skipped revision is additive and applied by SQLAlchemy metadata checks",
+        sorted(revisions),
+        target_revision,
+    )
+    await asyncio.to_thread(command.stamp, alembic_config, target_revision)
+    log.info("Alembic version fast-forwarded to %s", target_revision)
+
+
 async def run_migrations() -> None:
     alembic_config = Config("alembic.ini")
     try:
         log.info("Preparing database migrations")
         await stamp_existing_database_if_needed(alembic_config)
+        await fast_forward_noop_revisions(alembic_config)
         log.info("Running Alembic upgrade to head")
         await asyncio.to_thread(command.upgrade, alembic_config, "head")
         log.info("Database migrations applied")

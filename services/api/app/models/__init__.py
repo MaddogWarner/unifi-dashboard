@@ -1,4 +1,4 @@
-from app.models.firewall import FirewallLog, FirewallPolicy, FirewallRule, PolicySnapshot
+from app.models.firewall import FirewallLog, FirewallPolicy, FirewallPortForward, FirewallRule, PolicySnapshot
 from app.models.network import IdsConfig, Network
 from app.models.scan import ScanResult
 from app.models.threat import ThreatEvent

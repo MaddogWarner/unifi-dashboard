@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import async_session_factory
-from app.models.firewall import FirewallPolicy, FirewallRule, PolicySnapshot
+from app.models.firewall import FirewallPolicy, FirewallPortForward, FirewallRule, PolicySnapshot
 from app.models.network import IdsConfig, Network
 from app.models.threat import ThreatEvent
 from app.services import unifi_client
@@ -165,6 +165,14 @@ def normalise_ids_config(config: dict) -> dict[str, Any]:
     }
 
 
+def _first_present(data: dict, keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = data.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
 async def _upsert_policies(session: AsyncSession, policies: list[dict]) -> None:
     now = datetime.now(UTC)
     for policy in policies:
@@ -211,6 +219,37 @@ async def _upsert_rules(session: AsyncSession, rules: list[dict]) -> None:
         existing.dst_port = rule.get("dst_port")
         existing.raw_json = _json(rule)
         existing.synced_at = now
+
+
+async def _upsert_port_forwards(session: AsyncSession, forwards: list[dict]) -> None:
+    now = datetime.now(UTC)
+    seen_ids = set()
+    for forward in forwards:
+        uid = forward.get("_id") or forward.get("id")
+        if not uid:
+            continue
+        seen_ids.add(str(uid))
+        existing = await session.scalar(
+            select(FirewallPortForward).where(FirewallPortForward.unifi_id == str(uid))
+        )
+        if existing is None:
+            existing = FirewallPortForward(unifi_id=str(uid))
+            session.add(existing)
+        enabled_state = _is_truthy(forward.get("enabled", True))
+        existing.name = str(forward.get("name") or forward.get("rule_name") or uid)
+        existing.enabled = True if enabled_state is None else enabled_state
+        existing.protocol = _first_present(forward, ("protocol", "proto"))
+        existing.dst_port = str(_first_present(forward, ("dst_port", "src_port", "wan_port")) or "")
+        existing.fwd_port = str(_first_present(forward, ("fwd_port", "forward_port", "lan_port")) or "")
+        existing.fwd_ip = _first_present(forward, ("fwd", "fwd_ip", "forward_ip", "lan_ip", "dst_ip"))
+        existing.raw_json = _json(forward)
+        existing.synced_at = now
+    if seen_ids:
+        await session.execute(
+            delete(FirewallPortForward).where(FirewallPortForward.unifi_id.not_in(seen_ids))
+        )
+    else:
+        await session.execute(delete(FirewallPortForward))
 
 
 async def _upsert_networks(session: AsyncSession, networks: list[dict]) -> None:
@@ -306,6 +345,8 @@ async def _fetch_and_apply(
 ) -> list[dict] | dict | None:
     try:
         payload = await fetcher()
+        if payload is None:
+            return None
         await applier(session, payload)
         return payload
     except Exception:
@@ -323,6 +364,12 @@ async def run_poll_loop() -> None:
                 if isinstance(policies, list):
                     await _check_drift(session, policies)
                 await _fetch_and_apply(session, "firewall rules", unifi_client.get_firewall_rules, _upsert_rules)
+                await _fetch_and_apply(
+                    session,
+                    "port forwards",
+                    unifi_client.get_port_forwards,
+                    _upsert_port_forwards,
+                )
                 await _fetch_and_apply(session, "networks", unifi_client.get_networks, _upsert_networks)
                 await _fetch_and_apply(session, "IDS config", unifi_client.get_ids_config, _upsert_ids_config)
                 await _fetch_and_apply(session, "threat events", unifi_client.get_threat_events, _upsert_threats)

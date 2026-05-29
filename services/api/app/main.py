@@ -75,6 +75,9 @@ PHASE_2_TABLES = {
     "threat_feed_rules",
     "threat_feed_pending_rules",
 }
+PHASE_3_TABLES = {
+    "firewall_port_forwards",
+}
 
 
 async def seed_defaults() -> None:
@@ -108,7 +111,7 @@ async def existing_schema_state() -> tuple[set[str], set[str]]:
 async def stamp_existing_database_if_needed(alembic_config: Config) -> None:
     table_names, ids_config_columns = await existing_schema_state()
     log.info("Database schema inspection found %s tables", len(table_names))
-    has_app_tables = bool((INITIAL_SCHEMA_TABLES | PHASE_2_TABLES) & table_names)
+    has_app_tables = bool((INITIAL_SCHEMA_TABLES | PHASE_2_TABLES | PHASE_3_TABLES) & table_names)
     if ALEMBIC_VERSION_TABLE in table_names or not has_app_tables:
         if ALEMBIC_VERSION_TABLE in table_names:
             log.info("Alembic version table already exists; no baseline stamp required")
@@ -117,7 +120,9 @@ async def stamp_existing_database_if_needed(alembic_config: Config) -> None:
         return
 
     baseline_revision = (
-        "003_ids_config_raw_json"
+        "004_firewall_port_forwards"
+        if PHASE_3_TABLES & table_names
+        else "003_ids_config_raw_json"
         if "raw_json" in ids_config_columns
         else "002_cve_threatfeed_settings"
         if PHASE_2_TABLES & table_names

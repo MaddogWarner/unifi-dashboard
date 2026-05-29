@@ -112,6 +112,18 @@ async def get_firewall_rules() -> list[dict]:
     return data.get("data", [])
 
 
+async def get_port_forwards() -> list[dict] | None:
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    try:
+        data = await _get(f"{base_v1}/rest/portforward", api_key, verify)
+        return _data_items(data)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            log.warning("portforward v1 endpoint not available; skipping WAN exposure correlation")
+            return None
+        raise
+
+
 async def get_devices() -> list[dict]:
     base_v1, _base_v2, api_key, verify = await _load_config()
     data = await _get(f"{base_v1}/stat/device", api_key, verify)

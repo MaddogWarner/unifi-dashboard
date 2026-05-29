@@ -82,6 +82,18 @@ export type AssessmentReport = {
     status: "pass" | "warn" | "fail";
     detail: string;
     recommendation: string;
+    evidence?: Array<{
+      type: string;
+      target_ip: string | null;
+      port: number | null;
+      protocol: string | null;
+      service: string | null;
+      reason: string | null;
+      source: string | null;
+      matched_name: string | null;
+      scan_id: number | null;
+      observed_at: string | null;
+    }> | null;
   }>;
 };
 

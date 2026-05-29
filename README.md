@@ -220,7 +220,7 @@ Score: 72/100 — 5 pass, 2 warn, 3 fail
 
 ## Port Scanner
 
-The scanner service uses nmap to validate that firewall policies are actually enforced. After a scan, the API cross-references open ports against zone policies — if a port is open but the covering policy says BLOCK, it is flagged.
+The scanner service uses nmap to validate that firewall policies are actually enforced. Assessment findings include the latest open host/port evidence and, where UniFi exposes the data, correlate those ports with WAN port forwards or WAN allow rules so directly exposed services are easier to identify.
 
 **Safety constraint:** The scanner hard-refuses any target outside RFC1918 ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). This check is enforced in `services/scanner/scanner.py` before nmap is called and cannot be bypassed via the API.
 

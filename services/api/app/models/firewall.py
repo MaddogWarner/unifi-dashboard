@@ -42,6 +42,21 @@ class FirewallRule(Base):
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class FirewallPortForward(Base):
+    __tablename__ = "firewall_port_forwards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    unifi_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(256))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    protocol: Mapped[str | None] = mapped_column(String(16))
+    dst_port: Mapped[str | None] = mapped_column(String(128))
+    fwd_port: Mapped[str | None] = mapped_column(String(128))
+    fwd_ip: Mapped[str | None] = mapped_column(String(45), index=True)
+    raw_json: Mapped[str] = mapped_column(Text)
+    synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class FirewallLog(Base):
     __tablename__ = "firewall_logs"
 

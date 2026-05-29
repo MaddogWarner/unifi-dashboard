@@ -2,6 +2,26 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-29 (session 2)
+
+### Added
+
+- Added structured assessment evidence for the `DMZ for exposed services` check, including host, port, protocol, service, scan ID, source, matching UniFi object, and observed timestamp.
+- Added best-effort UniFi v1 port-forward polling from `/rest/portforward` and persisted enabled port-forward metadata for WAN exposure correlation.
+- Added Assessment page evidence rows so open ports and likely WAN exposure matches are visible under the affected check.
+
+### Changed
+
+- Improved DMZ assessment wording to distinguish open internal services from services likely exposed through WAN port forwards or WAN allow rules.
+- Updated scanner documentation to describe assessment evidence and WAN exposure correlation.
+
+### Validation
+
+- Python syntax validation passed for assessment, poller, UniFi client, model, router, schema, migration, and focused assessment evidence test code.
+- Frontend production build passed with `npm run build`.
+- `git diff --check` passed.
+- Focused pytest execution could not run locally because `pytest` is not installed on PATH.
+
 ## Unreleased - 2026-05-29
 
 ### Fixed

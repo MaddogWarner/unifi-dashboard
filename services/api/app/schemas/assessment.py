@@ -1,6 +1,20 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
+
+
+class AssessmentEvidenceOut(BaseModel):
+    type: str
+    target_ip: str | None = None
+    port: int | None = None
+    protocol: str | None = None
+    service: str | None = None
+    reason: str | None = None
+    source: str | None = None
+    matched_name: str | None = None
+    scan_id: int | None = None
+    observed_at: datetime | None = None
 
 
 class CheckResultOut(BaseModel):
@@ -9,6 +23,7 @@ class CheckResultOut(BaseModel):
     status: Literal["pass", "warn", "fail"]
     detail: str
     recommendation: str
+    evidence: list[AssessmentEvidenceOut] | None = None
 
 
 class AssessmentReportOut(BaseModel):

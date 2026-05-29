@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, select, text
@@ -146,17 +147,21 @@ async def current_alembic_revisions() -> set[str]:
         return {str(row.version_num) for row in result}
 
 
-async def fast_forward_noop_revisions(alembic_config: Config) -> None:
+def current_script_heads(alembic_config: Config) -> set[str]:
+    return set(ScriptDirectory.from_config(alembic_config).get_heads())
+
+
+async def fast_forward_noop_revisions(alembic_config: Config) -> str | None:
     table_names, _ = await existing_schema_state()
     if ALEMBIC_VERSION_TABLE not in table_names:
-        return
+        return None
 
     revisions = await current_alembic_revisions()
     fast_forward_targets = {
         target for source, target in NOOP_FAST_FORWARD_REVISIONS.items() if source in revisions
     }
     if not fast_forward_targets:
-        return
+        return None
 
     if len(fast_forward_targets) > 1:
         targets = sorted(fast_forward_targets)
@@ -171,6 +176,7 @@ async def fast_forward_noop_revisions(alembic_config: Config) -> None:
     )
     await asyncio.to_thread(command.stamp, alembic_config, target_revision)
     log.info("Alembic version fast-forwarded to %s", target_revision)
+    return target_revision
 
 
 async def run_migrations() -> None:
@@ -178,7 +184,13 @@ async def run_migrations() -> None:
     try:
         log.info("Preparing database migrations")
         await stamp_existing_database_if_needed(alembic_config)
-        await fast_forward_noop_revisions(alembic_config)
+        fast_forwarded_revision = await fast_forward_noop_revisions(alembic_config)
+        if fast_forwarded_revision in current_script_heads(alembic_config):
+            log.info(
+                "Database is already at Alembic head %s after fast-forward; skipping upgrade",
+                fast_forwarded_revision,
+            )
+            return
         log.info("Running Alembic upgrade to head")
         await asyncio.to_thread(command.upgrade, alembic_config, "head")
         log.info("Database migrations applied")

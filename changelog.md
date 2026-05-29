@@ -6,6 +6,7 @@ All notable project changes are recorded here.
 
 ### Fixed
 
+- Skipped `alembic upgrade head` after a successful startup fast-forward to the current Alembic head, preventing deployed databases from re-entering the `004_firewall_port_forwards` upgrade path.
 - Added an API startup Alembic fast-forward for existing databases at `003_ids_config_raw_json`, stamping directly to the additive `004_firewall_port_forwards` revision before `upgrade head` so startup no longer executes the problematic revision path on deployed installs.
 - Hotfixed API startup blocking during `004_firewall_port_forwards` by making the additive Alembic revision a fast no-op. The optional port-forward table is now created by the existing SQLAlchemy metadata safety net after migrations complete.
 - Made assessment generation tolerate an unavailable port-forward evidence table during rollout and continue with scan/WAN-rule evidence instead of failing the full report.

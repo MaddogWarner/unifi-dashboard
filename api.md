@@ -258,6 +258,12 @@ Returns the created policy object with `_id` assigned by UniFi.
 
 DELETE returns HTTP 204 (no body).
 
+For threat-feed bidirectional blocking, create a second policy with the same IP
+list on the destination side instead of the source side:
+
+- inbound: `source.zone_id = External`, `source.ips = threat IPs`, `destination.zone_id = Dmz`
+- outbound: `source.zone_id = Dmz`, `destination.zone_id = External`, `destination.ips = threat IPs`
+
 **Important:** Firewall groups (`/rest/firewallgroup`) are **not** referenced by zone policies.
 IPs must be embedded directly in `source.ips`. Groups are only used by classic rules (`/rest/firewallrule`).
 

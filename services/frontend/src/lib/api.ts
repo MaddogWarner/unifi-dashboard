@@ -174,10 +174,11 @@ export type ThreatFeedSource = {
 export type ThreatFeedStatus = {
   enabled: boolean;
   apply_mode: string;
+  direction_mode: string;
   last_updated: string | null;
   total_entries: number;
   pending_count: number;
-  zone_rules: Array<{ ruleset: string; group_count: number; rule_count: number }>;
+  zone_rules: Array<{ ruleset: string; direction: string; group_count: number; rule_count: number }>;
 };
 
 export type ThreatFeedEntry = {
@@ -191,6 +192,7 @@ export type ThreatFeedPendingRule = {
   id: number;
   ruleset: string;
   chunk_index: number;
+  direction: string;
   action: string;
   group_name: string;
   rule_name: string;

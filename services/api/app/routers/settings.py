@@ -22,6 +22,7 @@ VALID_SETTINGS = {
     "threat_feed.poll_interval_hours",
     "threat_feed.zones",
     "threat_feed.apply_mode",
+    "threat_feed.direction_mode",
     "http_proxy.enabled",
     "http_proxy.url",
 }
@@ -62,6 +63,11 @@ def _validate_settings(settings: dict[str, str]) -> None:
         "auto",
     }:
         raise HTTPException(400, "threat_feed.apply_mode must be preview or auto")
+    if "threat_feed.direction_mode" in settings and settings["threat_feed.direction_mode"] not in {
+        "inbound",
+        "bidirectional",
+    }:
+        raise HTTPException(400, "threat_feed.direction_mode must be inbound or bidirectional")
     if "threat_feed.zones" in settings:
         try:
             zones = json.loads(settings["threat_feed.zones"])

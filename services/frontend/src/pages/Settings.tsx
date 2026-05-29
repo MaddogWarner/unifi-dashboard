@@ -16,6 +16,7 @@ const defaults: Record<string, string> = {
   "threat_feed.poll_interval_hours": "24",
   "threat_feed.zones": '["WAN_IN","WAN_LOCAL"]',
   "threat_feed.apply_mode": "preview",
+  "threat_feed.direction_mode": "inbound",
   "http_proxy.enabled": "false",
   "http_proxy.url": ""
 };
@@ -253,6 +254,25 @@ export function Settings() {
                   draft["threat_feed.apply_mode"] === value ? "bg-slate-900 text-white" : "text-slate-700"
                 }`}
                 onClick={() => setValue("threat_feed.apply_mode", value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4">
+          <span className="text-sm font-medium text-slate-700">Direction</span>
+          <div className="mt-2 inline-flex rounded border border-slate-300 p-1">
+            {[
+              ["inbound", "Inbound"],
+              ["bidirectional", "Bidirectional"]
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                className={`rounded px-3 py-1.5 text-sm font-medium ${
+                  draft["threat_feed.direction_mode"] === value ? "bg-slate-900 text-white" : "text-slate-700"
+                }`}
+                onClick={() => setValue("threat_feed.direction_mode", value)}
               >
                 {label}
               </button>

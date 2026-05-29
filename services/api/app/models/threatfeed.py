@@ -33,10 +33,13 @@ class ThreatFeedEntry(Base):
 
 class ThreatFeedRule(Base):
     __tablename__ = "threat_feed_rules"
-    __table_args__ = (UniqueConstraint("ruleset", "chunk_index"),)
+    __table_args__ = (
+        UniqueConstraint("ruleset", "chunk_index", "direction", name="uq_threat_feed_rules_key"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ruleset: Mapped[str] = mapped_column(String(64), nullable=False)
+    direction: Mapped[str] = mapped_column(String(16), default="inbound")
     group_unifi_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     rule_unifi_id: Mapped[str | None] = mapped_column(String(128))
     chunk_index: Mapped[int] = mapped_column(Integer, default=0)
@@ -49,11 +52,22 @@ class ThreatFeedRule(Base):
 
 class ThreatFeedPendingRule(Base):
     __tablename__ = "threat_feed_pending_rules"
-    __table_args__ = (UniqueConstraint("ruleset", "chunk_index", "action", "payload_hash", "status"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "ruleset",
+            "chunk_index",
+            "direction",
+            "action",
+            "payload_hash",
+            "status",
+            name="uq_threat_feed_pending_rules_key",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ruleset: Mapped[str] = mapped_column(String(64), nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, default=0)
+    direction: Mapped[str] = mapped_column(String(16), default="inbound")
     action: Mapped[str] = mapped_column(String(16), nullable=False)
     group_name: Mapped[str] = mapped_column(String(256), nullable=False)
     rule_name: Mapped[str] = mapped_column(String(256), nullable=False)

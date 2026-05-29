@@ -28,6 +28,10 @@ THREAT_FEED_RULE_INDEX_START = 20000
 THREAT_FEED_GROUP_PREFIX = "ThreatFeed-"
 THREAT_FEED_RULE_PREFIX = "Block-ThreatFeed-"
 VALID_RULESETS = {"WAN_IN", "WAN_LOCAL", "LAN_IN", "LAN_OUT", "LAN_LOCAL", "GUEST_IN"}
+INBOUND_DIRECTION = "inbound"
+OUTBOUND_DIRECTION = "outbound"
+VALID_RULE_DIRECTIONS = {INBOUND_DIRECTION, OUTBOUND_DIRECTION}
+VALID_DIRECTION_MODES = {"inbound", "bidirectional"}
 
 # Module-level probe state — set once per process on first enforcement run.
 _zone_policy_available: bool | None = None
@@ -148,14 +152,52 @@ async def _delete_zone_policy_if_present(policy_id: str) -> None:
         log.info("Threat feed zone policy already missing id=%s", policy_id)
 
 
+def _zone_policy_name(dest_zone_name: str, idx: int, direction: str) -> str:
+    if direction == OUTBOUND_DIRECTION:
+        return f"{THREAT_FEED_RULE_PREFIX}{dest_zone_name}-Outbound-{idx}"
+    return f"{THREAT_FEED_RULE_PREFIX}{dest_zone_name}-{idx}"
+
+
+def _ip_zone_match(zone_id: str, chunk: list[str]) -> dict:
+    return {
+        "zone_id": zone_id,
+        "matching_target": "IP",
+        "matching_target_type": "SPECIFIC",
+        "match_opposite_ips": False,
+        "match_opposite_ports": False,
+        "port_matching_type": "ANY",
+        "ips": chunk,
+    }
+
+
+def _any_zone_match(zone_id: str) -> dict:
+    return {
+        "zone_id": zone_id,
+        "matching_target": "ANY",
+        "match_opposite_ports": False,
+        "port_matching_type": "ANY",
+    }
+
+
 def _zone_policy_payload(
-    external_zone_id: str, dest_zone_id: str, chunk: list[str], dest_zone_name: str, idx: int
+    external_zone_id: str,
+    dest_zone_id: str,
+    chunk: list[str],
+    dest_zone_name: str,
+    idx: int,
+    direction: str,
 ) -> dict:
     # Confirmed structure from on-device probe of /proxy/network/v2/api/site/{site}/firewall-policies.
     # IPs are embedded directly in source.ips — no firewall group reference needed.
-    # Source is always External zone (where inbound threats originate).
+    # Bidirectional mode requires a second policy with the zone references reversed.
+    if direction == OUTBOUND_DIRECTION:
+        source = _any_zone_match(dest_zone_id)
+        destination = _ip_zone_match(external_zone_id, chunk)
+    else:
+        source = _ip_zone_match(external_zone_id, chunk)
+        destination = _any_zone_match(dest_zone_id)
     return {
-        "name": f"{THREAT_FEED_RULE_PREFIX}{dest_zone_name}-{idx}",
+        "name": _zone_policy_name(dest_zone_name, idx, direction),
         "enabled": True,
         "action": "BLOCK",
         "ip_version": "IPV4",
@@ -169,28 +211,22 @@ def _zone_policy_payload(
         "icmp_typename": "ANY",
         "icmp_v6_typename": "ANY",
         "schedule": {"mode": "ALWAYS"},
-        "source": {
-            "zone_id": external_zone_id,
-            "matching_target": "IP",
-            "matching_target_type": "SPECIFIC",
-            "match_opposite_ips": False,
-            "match_opposite_ports": False,
-            "port_matching_type": "ANY",
-            "ips": chunk,
-        },
-        "destination": {
-            "zone_id": dest_zone_id,
-            "matching_target": "ANY",
-            "match_opposite_ports": False,
-            "port_matching_type": "ANY",
-        },
+        "source": source,
+        "destination": destination,
     }
 
 
 async def _get_or_create_zone_policy(
-    external_zone_id: str, dest_zone_id: str, chunk: list[str], dest_zone_name: str, idx: int
+    external_zone_id: str,
+    dest_zone_id: str,
+    chunk: list[str],
+    dest_zone_name: str,
+    idx: int,
+    direction: str,
 ) -> dict:
-    policy_payload = _zone_policy_payload(external_zone_id, dest_zone_id, chunk, dest_zone_name, idx)
+    policy_payload = _zone_policy_payload(
+        external_zone_id, dest_zone_id, chunk, dest_zone_name, idx, direction
+    )
     policies = await unifi_client.get_zone_policies()
     existing = _find_named(policies, policy_payload["name"])
     if existing:
@@ -296,9 +332,11 @@ async def _poll_all_feeds(proxy: str | None) -> None:
                     await session.commit()
 
 
-def _rule_payloads(ruleset: str, idx: int, chunk: list[str]) -> tuple[dict, dict]:
+def _rule_payloads(
+    ruleset: str, idx: int, chunk: list[str], direction: str = INBOUND_DIRECTION
+) -> tuple[dict, dict]:
     group_name = f"{THREAT_FEED_GROUP_PREFIX}{ruleset}-{idx}"
-    rule_name = f"{THREAT_FEED_RULE_PREFIX}{ruleset}-{idx}"
+    rule_name = _zone_policy_name(ruleset, idx, direction)
     group_payload = {
         "name": group_name,
         "group_type": "address-group",
@@ -384,6 +422,7 @@ async def _queue_pending_rule(
     *,
     ruleset: str,
     idx: int,
+    direction: str,
     action: str,
     entry_count: int,
     group_payload: dict,
@@ -400,6 +439,7 @@ async def _queue_pending_rule(
             delete(ThreatFeedPendingRule).where(
                 ThreatFeedPendingRule.ruleset == ruleset,
                 ThreatFeedPendingRule.chunk_index == idx,
+                ThreatFeedPendingRule.direction == direction,
                 ThreatFeedPendingRule.action == action,
                 ThreatFeedPendingRule.payload_hash == payload_hash,
                 ThreatFeedPendingRule.status.in_(["failed", "rejected"]),
@@ -409,6 +449,7 @@ async def _queue_pending_rule(
             select(ThreatFeedPendingRule).where(
                 ThreatFeedPendingRule.ruleset == ruleset,
                 ThreatFeedPendingRule.chunk_index == idx,
+                ThreatFeedPendingRule.direction == direction,
                 ThreatFeedPendingRule.action == action,
                 ThreatFeedPendingRule.payload_hash == payload_hash,
                 ThreatFeedPendingRule.status == "pending",
@@ -420,6 +461,7 @@ async def _queue_pending_rule(
             ThreatFeedPendingRule(
                 ruleset=ruleset,
                 chunk_index=idx,
+                direction=direction,
                 action=action,
                 group_name=group_payload["name"],
                 rule_name=rule_payload["name"],
@@ -436,6 +478,7 @@ async def _queue_pending_rule(
 async def _record_rule(
     ruleset: str,
     idx: int,
+    direction: str,
     group_id: str | None,
     rule_id: str | None,
     payload_hash: str,
@@ -450,12 +493,13 @@ async def _record_rule(
             .values(
                 ruleset=ruleset,
                 chunk_index=idx,
+                direction=direction,
                 group_unifi_id=stored_group_id,
                 rule_unifi_id=rule_id,
                 payload_hash=payload_hash,
             )
             .on_conflict_do_update(
-                index_elements=["ruleset", "chunk_index"],
+                index_elements=["ruleset", "chunk_index", "direction"],
                 set_={
                     "group_unifi_id": stored_group_id,
                     "rule_unifi_id": rule_id,
@@ -477,6 +521,7 @@ async def _apply_change(
     *,
     ruleset: str,
     idx: int,
+    direction: str,
     action: str,
     payload: dict,
     existing: ThreatFeedRule | None,
@@ -487,6 +532,8 @@ async def _apply_change(
     group_payload = payload["group"]
     rule_payload = payload["rule"]
     chunk: list[str] = payload.get("chunk", [])
+    if direction not in VALID_RULE_DIRECTIONS:
+        raise ValueError(f"Unsupported threat feed rule direction: {direction}")
     group_id = group_unifi_id or (existing.group_unifi_id if existing else None)
     rule_id = rule_unifi_id or (existing.rule_unifi_id if existing else None)
     if action == "delete":
@@ -519,29 +566,32 @@ async def _apply_change(
             # Update just replaces the IP list via a full PUT.
             if rule_id:
                 policy = await _get_or_create_zone_policy(
-                    external_zone_id, dest_zone_id, chunk, ruleset, idx
+                    external_zone_id, dest_zone_id, chunk, ruleset, idx, direction
                 )
                 rule_id = _unifi_id(policy)
-            await _record_rule(ruleset, idx, None, rule_id, payload_hash)
+            await _record_rule(ruleset, idx, direction, None, rule_id, payload_hash)
             return
         policy = await _get_or_create_zone_policy(
-            external_zone_id, dest_zone_id, chunk, ruleset, idx
+            external_zone_id, dest_zone_id, chunk, ruleset, idx, direction
         )
         rule_id = _unifi_id(policy)
         log.info(
-            "Threat feed enforcement (zone policy): rule_id=%s zone=%s chunk=%s",
+            "Threat feed enforcement (zone policy): rule_id=%s zone=%s direction=%s chunk=%s",
             rule_id,
             ruleset,
+            direction,
             idx,
         )
-        await _record_rule(ruleset, idx, None, rule_id, payload_hash)
+        await _record_rule(ruleset, idx, direction, None, rule_id, payload_hash)
         return
     # Classic rules path (fallback when zone policy API unavailable).
+    if direction != INBOUND_DIRECTION:
+        raise ValueError("Bidirectional threat feed enforcement requires zone policy support")
     if action == "update":
         if not group_id:
             raise ValueError("Cannot update a threat feed group without a UniFi group ID")
         await unifi_client.update_firewall_group(group_id, group_payload)
-        await _record_rule(ruleset, idx, group_id, rule_id, payload_hash)
+        await _record_rule(ruleset, idx, direction, group_id, rule_id, payload_hash)
         return
     group = await _get_or_create_firewall_group(group_payload)
     group_id = _unifi_id(group)
@@ -558,7 +608,7 @@ async def _apply_change(
         ruleset,
         idx,
     )
-    await _record_rule(ruleset, idx, group_id, rule_id, payload_hash)
+    await _record_rule(ruleset, idx, direction, group_id, rule_id, payload_hash)
 
 
 async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
@@ -572,6 +622,7 @@ async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
             select(ThreatFeedRule).where(
                 ThreatFeedRule.ruleset == pending.ruleset,
                 ThreatFeedRule.chunk_index == pending.chunk_index,
+                ThreatFeedRule.direction == pending.direction,
             )
         )
         payload = json.loads(pending.payload_json)
@@ -584,6 +635,7 @@ async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
         await _apply_change(
             ruleset=detached.ruleset,
             idx=detached.chunk_index,
+            direction=detached.direction,
             action=detached.action,
             payload=payload,
             existing=existing,
@@ -626,7 +678,9 @@ async def reject_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
         return pending
 
 
-async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
+async def _apply_to_unifi(zones: list[str], apply_mode: str, direction_mode: str) -> None:
+    if direction_mode not in VALID_DIRECTION_MODES:
+        raise ValueError("threat_feed.direction_mode must be inbound or bidirectional")
     use_zone_policies = await _ensure_zone_policy_probed()
     if use_zone_policies:
         # Accept only actual UniFi zone names (from the zone cache).
@@ -643,24 +697,45 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
                 seen.add(zone)
                 target_zones.append(zone)
     else:
+        if direction_mode == "bidirectional":
+            log.warning(
+                "Bidirectional threat feed enforcement requires zone policies; "
+                "classic firewall rule fallback will remain inbound-only"
+            )
         target_zones = [zone for zone in zones if zone in VALID_RULESETS]
+    target_directions = [INBOUND_DIRECTION]
+    if use_zone_policies and direction_mode == "bidirectional":
+        target_directions.append(OUTBOUND_DIRECTION)
     async with async_session_factory() as session:
         rows = (await session.scalars(select(ThreatFeedEntry))).all()
         existing_rules = (await session.scalars(select(ThreatFeedRule))).all()
 
     all_ips = sorted({row.cidr for row in rows})
     chunks = [all_ips[i : i + CHUNK_SIZE] for i in range(0, len(all_ips), CHUNK_SIZE)]
-    existing_by_key = {(rule.ruleset, rule.chunk_index): rule for rule in existing_rules}
-    needed_keys = {(zone, idx) for zone in target_zones for idx in range(len(chunks))}
+    existing_by_key = {
+        (rule.ruleset, rule.chunk_index, rule.direction): rule
+        for rule in existing_rules
+    }
+    needed_keys = {
+        (zone, idx, direction)
+        for zone in target_zones
+        for idx in range(len(chunks))
+        for direction in target_directions
+    }
 
     for key, rule in existing_by_key.items():
         if key not in needed_keys:
-            group_payload, rule_payload = _rule_payloads(rule.ruleset, rule.chunk_index, [])
-            payload_hash = _hash_payload({"delete": key, "group_id": rule.group_unifi_id})
+            group_payload, rule_payload = _rule_payloads(
+                rule.ruleset, rule.chunk_index, [], rule.direction
+            )
+            payload_hash = _hash_payload(
+                {"delete": key, "group_id": rule.group_unifi_id, "direction": rule.direction}
+            )
             if apply_mode == "auto":
                 await _apply_change(
                     ruleset=rule.ruleset,
                     idx=rule.chunk_index,
+                    direction=rule.direction,
                     action="delete",
                     payload={"group": group_payload, "rule": rule_payload, "chunk": []},
                     existing=rule,
@@ -672,6 +747,7 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
                 await _queue_pending_rule(
                     ruleset=rule.ruleset,
                     idx=rule.chunk_index,
+                    direction=rule.direction,
                     action="delete",
                     entry_count=0,
                     group_payload=group_payload,
@@ -683,36 +759,41 @@ async def _apply_to_unifi(zones: list[str], apply_mode: str) -> None:
 
     for zone in target_zones:
         for idx, chunk in enumerate(chunks):
-            group_payload, rule_payload = _rule_payloads(zone, idx, chunk)
-            payload = {"group": group_payload, "rule": rule_payload, "chunk": chunk}
-            payload_hash = _hash_payload({"group": group_payload, "rule": rule_payload})
-            existing = existing_by_key.get((zone, idx))
-            if existing and existing.payload_hash == payload_hash:
-                continue
-            action = "update" if existing else "create"
-            if apply_mode == "auto":
-                await _apply_change(
-                    ruleset=zone,
-                    idx=idx,
-                    action=action,
-                    payload=payload,
-                    existing=existing,
-                    group_unifi_id=existing.group_unifi_id if existing else None,
-                    rule_unifi_id=existing.rule_unifi_id if existing else None,
-                    payload_hash=payload_hash,
+            for direction in target_directions:
+                group_payload, rule_payload = _rule_payloads(zone, idx, chunk, direction)
+                payload = {"group": group_payload, "rule": rule_payload, "chunk": chunk}
+                payload_hash = _hash_payload(
+                    {"group": group_payload, "rule": rule_payload, "direction": direction}
                 )
-            else:
-                await _queue_pending_rule(
-                    ruleset=zone,
-                    idx=idx,
-                    action=action,
-                    entry_count=len(chunk),
-                    group_payload=group_payload,
-                    rule_payload=rule_payload,
-                    chunk=chunk,
-                    existing=existing,
-                    payload_hash=payload_hash,
-                )
+                existing = existing_by_key.get((zone, idx, direction))
+                if existing and existing.payload_hash == payload_hash:
+                    continue
+                action = "update" if existing else "create"
+                if apply_mode == "auto":
+                    await _apply_change(
+                        ruleset=zone,
+                        idx=idx,
+                        direction=direction,
+                        action=action,
+                        payload=payload,
+                        existing=existing,
+                        group_unifi_id=existing.group_unifi_id if existing else None,
+                        rule_unifi_id=existing.rule_unifi_id if existing else None,
+                        payload_hash=payload_hash,
+                    )
+                else:
+                    await _queue_pending_rule(
+                        ruleset=zone,
+                        idx=idx,
+                        direction=direction,
+                        action=action,
+                        entry_count=len(chunk),
+                        group_payload=group_payload,
+                        rule_payload=rule_payload,
+                        chunk=chunk,
+                        existing=existing,
+                        payload_hash=payload_hash,
+                    )
 
 
 async def _cleanup_unifi_rules() -> None:
@@ -763,12 +844,17 @@ async def run_threat_feed_collector_once() -> None:
     proxy_url = await _get_setting("http_proxy.url", "")
     proxy_enabled = (await _get_setting("http_proxy.enabled", "false")).lower() == "true"
     apply_mode = await _get_setting("threat_feed.apply_mode", "preview")
+    direction_mode = await _get_setting("threat_feed.direction_mode", "inbound")
     zones_json = await _get_setting("threat_feed.zones", '["WAN_IN", "WAN_LOCAL"]')
     zones = json.loads(zones_json)
     if not isinstance(zones, list):
         raise ValueError("threat_feed.zones must be a JSON array")
     await _poll_all_feeds(proxy_url if proxy_enabled and proxy_url else None)
-    await _apply_to_unifi([str(zone) for zone in zones], "auto" if apply_mode == "auto" else "preview")
+    await _apply_to_unifi(
+        [str(zone) for zone in zones],
+        "auto" if apply_mode == "auto" else "preview",
+        direction_mode,
+    )
 
 
 async def run_threat_feed_collector() -> None:

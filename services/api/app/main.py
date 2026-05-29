@@ -45,6 +45,7 @@ SETTING_DEFAULTS = {
     "threat_feed.poll_interval_hours": "24",
     "threat_feed.zones": '["WAN_IN", "WAN_LOCAL"]',
     "threat_feed.apply_mode": "preview",
+    "threat_feed.direction_mode": "inbound",
     "http_proxy.enabled": "false",
     "http_proxy.url": "",
 }

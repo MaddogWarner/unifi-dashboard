@@ -95,6 +95,7 @@ async def delete_feed(feed_id: int, db: AsyncSession = Depends(get_db)) -> None:
 async def get_status(db: AsyncSession = Depends(get_db)) -> ThreatFeedStatusOut:
     enabled_setting = await db.get(AppSetting, "threat_feed.enabled")
     mode_setting = await db.get(AppSetting, "threat_feed.apply_mode")
+    direction_setting = await db.get(AppSetting, "threat_feed.direction_mode")
     enabled = enabled_setting.value.lower() == "true" if enabled_setting else False
     total = (await db.scalar(select(func.count(ThreatFeedEntry.id)))) or 0
     last = await db.scalar(select(func.max(ThreatFeedSource.last_polled_at)))
@@ -106,21 +107,23 @@ async def get_status(db: AsyncSession = Depends(get_db)) -> ThreatFeedStatusOut:
         )
     ) or 0
     rules = (await db.scalars(select(ThreatFeedRule))).all()
-    zone_summary: dict[str, dict[str, int]] = {}
+    zone_summary: dict[tuple[str, str], dict[str, int]] = {}
     for rule in rules:
-        zone_summary.setdefault(rule.ruleset, {"group_count": 0, "rule_count": 0})
-        zone_summary[rule.ruleset]["group_count"] += 1
+        key = (rule.ruleset, rule.direction)
+        zone_summary.setdefault(key, {"group_count": 0, "rule_count": 0})
+        zone_summary[key]["group_count"] += 1
         if rule.rule_unifi_id:
-            zone_summary[rule.ruleset]["rule_count"] += 1
+            zone_summary[key]["rule_count"] += 1
     return ThreatFeedStatusOut(
         enabled=enabled,
         apply_mode=mode_setting.value if mode_setting else "preview",
+        direction_mode=direction_setting.value if direction_setting else "inbound",
         last_updated=last,
         total_entries=total,
         pending_count=pending_count,
         zone_rules=[
-            ThreatFeedZoneRuleOut(ruleset=ruleset, **counts)
-            for ruleset, counts in sorted(zone_summary.items())
+            ThreatFeedZoneRuleOut(ruleset=ruleset, direction=direction, **counts)
+            for (ruleset, direction), counts in sorted(zone_summary.items())
         ],
     )
 

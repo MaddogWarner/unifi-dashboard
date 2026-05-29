@@ -29,6 +29,7 @@ class ThreatFeedUpdate(BaseModel):
 
 class ThreatFeedZoneRuleOut(BaseModel):
     ruleset: str
+    direction: str
     group_count: int
     rule_count: int
 
@@ -36,6 +37,7 @@ class ThreatFeedZoneRuleOut(BaseModel):
 class ThreatFeedStatusOut(BaseModel):
     enabled: bool
     apply_mode: str
+    direction_mode: str
     last_updated: datetime | None
     total_entries: int
     pending_count: int
@@ -60,6 +62,7 @@ class ThreatFeedPendingRuleOut(BaseModel):
     id: int
     ruleset: str
     chunk_index: int
+    direction: str
     action: str
     group_name: str
     rule_name: str

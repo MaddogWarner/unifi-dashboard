@@ -2,6 +2,13 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-30
+
+### Added
+
+- Added a global threat-feed direction mode setting with `inbound` default and `bidirectional` option. Bidirectional mode keeps existing External-to-zone block policies and adds matching zone-to-External outbound block policies with threat-feed IPs matched on the destination side.
+- Added rule direction tracking to `threat_feed_rules` and `threat_feed_pending_rules`, including Alembic migration 008, API status output, pending-rule output, settings validation, and Settings/Threat Feeds UI support.
+
 ## Unreleased - 2026-05-29 (session 9)
 
 ### Fixed

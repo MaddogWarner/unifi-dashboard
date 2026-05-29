@@ -109,11 +109,12 @@ export function ThreatFeeds() {
         </button>
       </header>
 
-      <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm md:grid-cols-5">
+      <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm md:grid-cols-6">
         <span className={status.data?.enabled ? "font-semibold text-emerald-700" : "font-semibold text-slate-500"}>
           {status.data?.enabled ? "Active" : "Disabled"}
         </span>
         <span>Mode: {status.data?.apply_mode === "auto" ? "Auto Push" : "Preview"}</span>
+        <span>Direction: {status.data?.direction_mode === "bidirectional" ? "Bidirectional" : "Inbound"}</span>
         <span>Last updated: {formatDate(status.data?.last_updated)}</span>
         <span>{(status.data?.total_entries ?? 0).toLocaleString()} IPs</span>
         <span>{status.data?.pending_count ?? 0} pending approvals</span>
@@ -130,6 +131,7 @@ export function ThreatFeeds() {
               <tr>
                 <th className="p-2">Action</th>
                 <th>Ruleset</th>
+                <th>Direction</th>
                 <th>Rule</th>
                 <th>Entries</th>
                 <th>Created</th>
@@ -142,6 +144,7 @@ export function ThreatFeeds() {
                 <tr key={rule.id} className="border-t border-slate-100 align-top">
                   <td className="p-2 uppercase">{rule.action}</td>
                   <td className="p-2 font-mono text-xs">{rule.ruleset}</td>
+                  <td className="p-2 capitalize">{rule.direction}</td>
                   <td className="p-2">{rule.rule_name}</td>
                   <td className="p-2">{rule.entry_count.toLocaleString()}</td>
                   <td className="p-2">{formatDate(rule.created_at)}</td>
@@ -177,7 +180,7 @@ export function ThreatFeeds() {
               ))}
               {!pending.data?.length ? (
                 <tr className="border-t border-slate-100">
-                  <td className="p-2 text-slate-500" colSpan={7}>No pending rule changes</td>
+                  <td className="p-2 text-slate-500" colSpan={8}>No pending rule changes</td>
                 </tr>
               ) : null}
             </tbody>

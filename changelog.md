@@ -2,6 +2,26 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-29 (session 9)
+
+### Fixed
+
+- Added migration 006 using `op.execute()` raw SQL to force `threat_feed_rules.group_unifi_id` nullable. Migration 005's `op.alter_column()` was not reliably committing the DDL through the asyncpg `run_sync` adapter; raw SQL via `op.execute()` bypasses this. The `DROP NOT NULL` statement is idempotent on PostgreSQL, so it is safe to run whether or not migration 005 applied correctly.
+
+## Unreleased - 2026-05-29 (session 8)
+
+### Fixed
+
+- Fixed zone-based firewall policy creation using the wrong API path. All five zone policy functions in `unifi_client.py` (`zone_policy_api_available`, `get_zone_policies`, `create_zone_policy`, `update_zone_policy`, `delete_zone_policy`) were targeting the v1 `/rest/firewallpolicy` path (HTTP 400 on Network 10) and the v2 integration path (HTTP 404). They now use the confirmed v2 internal path `/proxy/network/v2/api/site/{site}/firewall-policies`, constructed from the v1 base URL the same way `get_zones_list()` does.
+- Fixed zone policy payload structure. The API embeds IPs directly in `source.ips` — there is no `firewallgroup_ids` field. Firewall groups are only used by classic rules, not zone policies. `_zone_policy_payload()` now builds the correct payload with `source.matching_target: "IP"`, `source.matching_target_type: "SPECIFIC"`, and the IP list in `source.ips`. All enum values are uppercase (`"BLOCK"`, `"IPV4"`, `"ALWAYS"`, etc.) as required by the UniFi API. Zone policies do not use firewall groups at all.
+- Made `threat_feed_rules.group_unifi_id` nullable in the SQLAlchemy model and added Alembic migration 005 to `ALTER COLUMN ... DROP NOT NULL`. Zone policies carry no associated firewall group, so `group_unifi_id = None` is valid for zone-policy-enforced rules.
+- Fixed zone validation in `_apply_to_unifi()` accepting stale legacy ruleset names (WAN_IN, WAN_LOCAL, DMZ uppercase) as zone destinations. The `RULESET_TO_DEST_ZONE` mapping was removed. Zone names are now validated directly against the live UniFi zone cache populated by `_populate_zone_cache()`, with a warning logged and the zone skipped if the stored name is not a real zone name.
+- Fixed null dereference in `_cleanup_unifi_rules()` calling `_delete_firewall_group_if_present(rule.group_unifi_id)` when `group_unifi_id` is `None` for zone-policy rules. Added a guard so the group delete is only attempted when the field is non-null.
+
+### Validation
+
+- UniFi API endpoints confirmed via on-device probe and documented in `api.md`.
+
 ## Unreleased - 2026-05-29 (session 7)
 
 ### Fixed

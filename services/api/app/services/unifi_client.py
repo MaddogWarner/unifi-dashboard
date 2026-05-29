@@ -223,28 +223,23 @@ async def get_zones() -> list[dict]:
 
 
 async def get_zones_list() -> list[dict]:
-    """Returns zone list; tries v1 /rest/zone then v2 /firewall-zones. Returns [] if unavailable."""
-    base_v1, base_v2, api_key, verify = await _load_config()
-    candidates = [
-        f"{base_v1}/rest/zone",
-        f"{base_v2}/firewall-zones",
-    ]
-    for url in candidates:
-        try:
-            data = await _get(url, api_key, verify)
-            items = _data_items(data)
-            if items:
-                log.debug("Zone list loaded from %s (%d zones)", url, len(items))
-                return items
-            log.debug("Zone endpoint %s returned empty list", url)
-        except httpx.HTTPStatusError as exc:
-            log.debug("Zone endpoint %s returned HTTP %s", url, exc.response.status_code)
-            if exc.response.status_code not in (404, 405):
-                raise
-        except Exception as exc:
-            log.warning("Zone endpoint %s failed: %s", url, exc)
-    log.warning("Zone list not available (all zone endpoints failed or returned empty)")
-    return []
+    """Returns zone list from /proxy/network/v2/api/site/{site}/firewall/zone. Returns [] if unavailable."""
+    base_v1, _base_v2, api_key, verify = await _load_config()
+    # The zone list lives at a separate v2 internal API path, not the integration API.
+    # /rest/zone → 400, integration /firewall-zones → 404 on Network 10.4.x.
+    host, _, site = base_v1.rpartition("/proxy/network/api/s/")
+    url = f"{host}/proxy/network/v2/api/site/{site}/firewall/zone"
+    try:
+        data = await _get(url, api_key, verify)
+        items = data if isinstance(data, list) else _data_items(data)
+        log.debug("Zone list loaded (%d zones)", len(items))
+        return items
+    except httpx.HTTPStatusError as exc:
+        log.warning("Zone list endpoint returned HTTP %s", exc.response.status_code)
+        return []
+    except Exception as exc:
+        log.warning("Zone list failed: %s", exc)
+        return []
 
 
 async def zone_policy_api_available() -> bool:
@@ -254,7 +249,8 @@ async def zone_policy_api_available() -> bool:
         await _get(f"{base_v1}/rest/firewallpolicy", api_key, verify)
         return True
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 404:
+        # 400 (InvalidObject) = collection does not exist on this firmware; 404 = explicit not-found
+        if exc.response.status_code in (400, 404):
             return False
         raise
 

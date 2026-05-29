@@ -2,6 +2,15 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-29 (session 6)
+
+### Fixed
+
+- Fixed `get_zones_list()` only catching HTTP 404 — any other error (403, 500, network error) propagated and caused `/api/v1/networks/zones` to return 500, putting the Settings zone picker in error/fallback state. Now catches all HTTP errors (except 4xx other than 404/405 which still propagate as genuine errors) and general exceptions, logging each at DEBUG/WARNING.
+- Fixed `get_zones_list()` only trying one API path. Now tries both v1 `/rest/zone` and v2 `/firewall-zones` endpoints, using the first that returns a non-empty list. Ensures zone names are discovered on devices where only one endpoint is available.
+- Fixed `_resolve_zone_id()` in the threat feed collector having no fallback when `/rest/zone` is unavailable. Now extracts zone IDs from existing zone-based firewall policies (`/rest/firewallpolicy`) if the zone list API returns empty, enabling zone policy enforcement on devices where the zone list endpoint is absent but policies can still be read.
+- Fixed Settings page fallback zone picker showing v1 ruleset names (WAN_IN, WAN_LOCAL, etc.) when zone API is unavailable. Fallback now shows actual UniFi zone names (External, Internal, Gateway, VPN, Hotspot, DMZ) matching the Policy Engine.
+
 ## Unreleased - 2026-05-29 (session 5)
 
 ### Added

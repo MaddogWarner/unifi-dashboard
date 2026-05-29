@@ -107,6 +107,19 @@ async def _resolve_zone_id(zone_name: str) -> str | None:
             for z in zones
             if z.get("name")
         }
+        if not _zone_id_cache:
+            # /rest/zone unavailable — try extracting zone IDs from existing firewall policies
+            log.info("Zone list API empty; attempting zone ID extraction from existing policies")
+            policies = await unifi_client.get_zone_policies()
+            for policy in policies:
+                for direction in ("src", "dst", "source", "destination"):
+                    obj = policy.get(direction, {})
+                    if not isinstance(obj, dict):
+                        continue
+                    zid = obj.get("zone_id") or obj.get("zoneId")
+                    zname = obj.get("zone") or obj.get("zoneName") or obj.get("zone_name")
+                    if zid and zname and zname not in _zone_id_cache:
+                        _zone_id_cache[zname] = zid
         if _zone_id_cache:
             log.info("Zone ID cache populated: %s", list(_zone_id_cache.keys()))
         else:

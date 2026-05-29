@@ -5,12 +5,12 @@ import { clearActionToast, showErrorToast, showSuccessToast } from "../component
 import { getSettings, getZones, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
 
 const FALLBACK_ZONES = [
-  ["WAN_IN", "WAN Inbound"],
-  ["WAN_LOCAL", "WAN Local"],
-  ["LAN_IN", "LAN Inbound"],
-  ["LAN_OUT", "LAN Outbound"],
-  ["LAN_LOCAL", "LAN Local"],
-  ["GUEST_IN", "Guest Inbound"]
+  ["External", "External"],
+  ["Internal", "Internal"],
+  ["Gateway", "Gateway"],
+  ["VPN", "VPN"],
+  ["Hotspot", "Hotspot"],
+  ["DMZ", "DMZ"],
 ];
 
 const defaults: Record<string, string> = {

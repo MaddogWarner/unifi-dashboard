@@ -223,16 +223,28 @@ async def get_zones() -> list[dict]:
 
 
 async def get_zones_list() -> list[dict]:
-    """Returns zone list from /rest/zone; returns [] if endpoint not available (404)."""
-    base_v1, _base_v2, api_key, verify = await _load_config()
-    try:
-        data = await _get(f"{base_v1}/rest/zone", api_key, verify)
-        return _data_items(data)
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 404:
-            log.warning("Zone list API not available (/rest/zone returned 404)")
-            return []
-        raise
+    """Returns zone list; tries v1 /rest/zone then v2 /firewall-zones. Returns [] if unavailable."""
+    base_v1, base_v2, api_key, verify = await _load_config()
+    candidates = [
+        f"{base_v1}/rest/zone",
+        f"{base_v2}/firewall-zones",
+    ]
+    for url in candidates:
+        try:
+            data = await _get(url, api_key, verify)
+            items = _data_items(data)
+            if items:
+                log.debug("Zone list loaded from %s (%d zones)", url, len(items))
+                return items
+            log.debug("Zone endpoint %s returned empty list", url)
+        except httpx.HTTPStatusError as exc:
+            log.debug("Zone endpoint %s returned HTTP %s", url, exc.response.status_code)
+            if exc.response.status_code not in (404, 405):
+                raise
+        except Exception as exc:
+            log.warning("Zone endpoint %s failed: %s", url, exc)
+    log.warning("Zone list not available (all zone endpoints failed or returned empty)")
+    return []
 
 
 async def zone_policy_api_available() -> bool:

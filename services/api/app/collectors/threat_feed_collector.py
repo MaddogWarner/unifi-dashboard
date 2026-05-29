@@ -440,20 +440,24 @@ async def _record_rule(
     rule_id: str | None,
     payload_hash: str,
 ) -> None:
+    # Zone policies do not use firewall groups. Store an empty sentinel so
+    # approval remains resilient on deployed databases still carrying the old
+    # NOT NULL constraint while migrations catch up.
+    stored_group_id = group_id if group_id is not None else ""
     async with async_session_factory() as session:
         await session.execute(
             insert(ThreatFeedRule)
             .values(
                 ruleset=ruleset,
                 chunk_index=idx,
-                group_unifi_id=group_id,
+                group_unifi_id=stored_group_id,
                 rule_unifi_id=rule_id,
                 payload_hash=payload_hash,
             )
             .on_conflict_do_update(
                 index_elements=["ruleset", "chunk_index"],
                 set_={
-                    "group_unifi_id": group_id,
+                    "group_unifi_id": stored_group_id,
                     "rule_unifi_id": rule_id,
                     "payload_hash": payload_hash,
                     "updated_at": datetime.now(UTC),

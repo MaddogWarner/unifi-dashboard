@@ -216,9 +216,40 @@ async def run_migrations() -> None:
         raise
 
 
+async def enforce_runtime_schema_guards() -> None:
+    async with engine.begin() as conn:
+        def threat_feed_group_nullable(sync_conn) -> bool:
+            inspector = inspect(sync_conn)
+            table_names = set(inspector.get_table_names())
+            if "threat_feed_rules" not in table_names:
+                return True
+            columns = {
+                column["name"]: column
+                for column in inspector.get_columns("threat_feed_rules")
+            }
+            group_column = columns.get("group_unifi_id")
+            return bool(group_column is None or group_column.get("nullable"))
+
+        if await conn.run_sync(threat_feed_group_nullable):
+            return
+        if conn.dialect.name != "postgresql":
+            log.warning(
+                "threat_feed_rules.group_unifi_id is not nullable, but automatic "
+                "schema guard is only supported on PostgreSQL"
+            )
+            return
+        log.warning(
+            "Correcting threat_feed_rules.group_unifi_id nullable constraint after migrations"
+        )
+        await conn.execute(
+            text("ALTER TABLE threat_feed_rules ALTER COLUMN group_unifi_id DROP NOT NULL")
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await run_migrations()
+    await enforce_runtime_schema_guards()
     async with engine.begin() as conn:
         log.info("Ensuring SQLAlchemy metadata exists")
         await conn.run_sync(Base.metadata.create_all)

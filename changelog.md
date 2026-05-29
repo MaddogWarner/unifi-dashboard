@@ -6,6 +6,8 @@ All notable project changes are recorded here.
 
 ### Fixed
 
+- Added migration 007 and an API startup schema guard to reassert `threat_feed_rules.group_unifi_id` is nullable even when a deployed database was already stamped past the earlier nullable migration. This prevents zone-policy approvals from creating UniFi policies successfully and then failing during local rule tracking.
+- Made threat-feed rule recording store an empty group ID sentinel for zone-policy rows so approval remains compatible with older deployed databases that still have the previous `NOT NULL` constraint until the schema guard has corrected them.
 - Added migration 006 using `op.execute()` raw SQL to force `threat_feed_rules.group_unifi_id` nullable. Migration 005's `op.alter_column()` was not reliably committing the DDL through the asyncpg `run_sync` adapter; raw SQL via `op.execute()` bypasses this. The `DROP NOT NULL` statement is idempotent on PostgreSQL, so it is safe to run whether or not migration 005 applied correctly.
 
 ## Unreleased - 2026-05-29 (session 8)

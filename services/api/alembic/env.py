@@ -29,10 +29,13 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    connection.execute(text("SET lock_timeout = '10s'"))
-    connection.execute(text("SET statement_timeout = '60s'"))
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
+        # SET LOCAL keeps these scoped to the migration transaction. Running them
+        # before begin_transaction() would autobegin a SQLAlchemy 2.0 transaction
+        # that collides with Alembic's own, forcing a rollback.
+        connection.execute(text("SET LOCAL lock_timeout = '10s'"))
+        connection.execute(text("SET LOCAL statement_timeout = '60s'"))
         context.run_migrations()
 
 
@@ -48,6 +51,14 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
+    # When the FastAPI app drives the upgrade it injects a live connection so the
+    # migration runs on the application's own event loop (via run_sync). Nesting
+    # asyncio.run() inside a worker thread deadlocks on some hosts (e.g. the Pi).
+    connectable = config.attributes.get("connection")
+    if connectable is not None:
+        do_run_migrations(connectable)
+        return
+
     import asyncio
 
     asyncio.run(run_async_migrations())

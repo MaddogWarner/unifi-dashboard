@@ -197,6 +197,11 @@ async def fast_forward_noop_revisions(alembic_config: Config) -> str | None:
     return target_revision
 
 
+def _run_upgrade(connection, alembic_config: Config) -> None:
+    alembic_config.attributes["connection"] = connection
+    command.upgrade(alembic_config, "head")
+
+
 async def run_migrations() -> None:
     alembic_config = Config("alembic.ini")
     try:
@@ -210,7 +215,8 @@ async def run_migrations() -> None:
             )
             return
         log.info("Running Alembic upgrade to head")
-        await asyncio.to_thread(command.upgrade, alembic_config, "head")
+        async with engine.connect() as conn:
+            await conn.run_sync(_run_upgrade, alembic_config)
         log.info("Database migrations applied")
     except Exception:
         log.exception("Database migration failed during API startup")

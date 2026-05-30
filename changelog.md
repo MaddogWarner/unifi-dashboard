@@ -2,6 +2,13 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-30 (session 10)
+
+### Fixed
+
+- Fixed Firewall tab showing only threat-feed rules in the legacy view, with no zone policies ever displayed. The poller's integration v1 API (`/proxy/network/integration/v1/sites/{site}/firewall-policies`) returns 404 on this firmware and the poller silently stored nothing. Added a fallback in `run_poll_loop()` that calls `get_zone_policies()` (the internal v2 API already used by the threat-feed collector) when the integration API returns empty. Zone IDs in the v2 response are resolved to zone names via `get_zones_list()` in `_apply_zone_map()`, making the payload compatible with the existing `_upsert_policies()` function without further schema changes.
+- Fixed threat-feed-managed classic rules (`Block-ThreatFeed-*`) cluttering the legacy firewall rules view. Added a name-prefix filter to `_upsert_rules()` so those rules are skipped during sync, and a targeted `DELETE` at the start of each poll cycle to remove any that were stored before the filter was introduced. The rules are still created and tracked in `threat_feed_rules` / `threat_feed_pending_rules` — they are only excluded from the user-facing firewall view.
+
 ## Unreleased - 2026-05-30
 
 ### Added

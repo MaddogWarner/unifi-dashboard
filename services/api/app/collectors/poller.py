@@ -18,6 +18,8 @@ from app.services import unifi_client
 
 log = logging.getLogger(__name__)
 
+_THREAT_FEED_RULE_PREFIX = "Block-ThreatFeed-"
+
 IDS_ENABLE_FIELDS = (
     "enabled",
     "ips_enabled",
@@ -198,9 +200,36 @@ async def _upsert_policies(session: AsyncSession, policies: list[dict]) -> None:
         existing.synced_at = now
 
 
+def _apply_zone_map(policies: list[dict], zones: list[dict]) -> list[dict]:
+    """Normalise internal v2 zone policies to the shape _upsert_policies expects."""
+    zone_map = {
+        str(z.get("_id") or z.get("id") or ""): str(z.get("name") or "")
+        for z in zones
+        if z.get("_id") or z.get("id")
+    }
+    result = []
+    for p in policies:
+        src = p.get("source") or {}
+        dst = p.get("destination") or {}
+        src_zone_id = src.get("zone_id")
+        dst_zone_id = dst.get("zone_id")
+        schedule = p.get("schedule")
+        if isinstance(schedule, dict):
+            schedule = schedule.get("mode")
+        result.append({
+            **p,
+            "src_zone": zone_map.get(str(src_zone_id)) if src_zone_id else None,
+            "dst_zone": zone_map.get(str(dst_zone_id)) if dst_zone_id else None,
+            "schedule": schedule,
+        })
+    return result
+
+
 async def _upsert_rules(session: AsyncSession, rules: list[dict]) -> None:
     now = datetime.now(UTC)
     for rule in rules:
+        if str(rule.get("name") or "").startswith(_THREAT_FEED_RULE_PREFIX):
+            continue
         uid = rule.get("_id") or rule.get("id")
         if not uid:
             continue
@@ -361,8 +390,29 @@ async def run_poll_loop() -> None:
                 policies = await _fetch_and_apply(
                     session, "firewall policies", unifi_client.get_firewall_policies, _upsert_policies
                 )
-                if isinstance(policies, list):
+                # When the integration v1 API returns nothing (404 on this firmware), fall back to
+                # the internal v2 API that the UniFi UI itself uses, mapping zone IDs to names.
+                if not policies:
+                    try:
+                        v2_policies = await unifi_client.get_zone_policies()
+                        if v2_policies:
+                            zones = await unifi_client.get_zones_list()
+                            normalised = _apply_zone_map(v2_policies, zones)
+                            await _upsert_policies(session, normalised)
+                            policies = v2_policies
+                            log.info(
+                                "Synced %d zone policies via internal v2 API fallback",
+                                len(v2_policies),
+                            )
+                    except Exception:
+                        log.exception("Failed to sync firewall policies from internal v2 API fallback")
+                if isinstance(policies, list) and policies:
                     await _check_drift(session, policies)
+                # Remove any threat-feed-managed rules that may have been stored before
+                # the prefix filter was introduced — they clutter the user's firewall view.
+                await session.execute(
+                    delete(FirewallRule).where(FirewallRule.name.like(f"{_THREAT_FEED_RULE_PREFIX}%"))
+                )
                 await _fetch_and_apply(session, "firewall rules", unifi_client.get_firewall_rules, _upsert_rules)
                 await _fetch_and_apply(
                     session,

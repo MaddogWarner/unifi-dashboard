@@ -285,6 +285,85 @@ async def enforce_runtime_schema_guards() -> None:
                     "ALTER TABLE threat_feed_pending_rules ALTER COLUMN direction DROP DEFAULT"
                 ))
 
+        # Guard 2b: ensure uq_threat_feed_rules_key (ruleset, chunk_index, direction) exists.
+        # Without this constraint the ON CONFLICT clause in the threat feed UPSERT will fail.
+        def has_rules_constraint(sync_conn) -> bool:
+            return bool(
+                sync_conn.execute(
+                    text("SELECT 1 FROM pg_constraint WHERE conname = 'uq_threat_feed_rules_key'")
+                ).scalar()
+            )
+
+        if not await conn.run_sync(has_rules_constraint):
+            log.warning("Creating uq_threat_feed_rules_key constraint (migration 008 fallback guard)")
+            await conn.execute(text("""
+                DO $$
+                DECLARE cname text;
+                BEGIN
+                    SELECT c.conname INTO cname
+                    FROM pg_constraint c
+                    JOIN pg_class t ON t.oid = c.conrelid
+                    JOIN pg_namespace n ON n.oid = t.relnamespace
+                    WHERE t.relname = 'threat_feed_rules' AND n.nspname = current_schema()
+                      AND c.contype = 'u'
+                      AND (
+                        SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+                        FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, ordinality)
+                        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+                      ) = ARRAY['ruleset', 'chunk_index'];
+                    IF cname IS NOT NULL THEN
+                        EXECUTE format('ALTER TABLE threat_feed_rules DROP CONSTRAINT %I', cname);
+                    END IF;
+                END $$;
+            """))
+            await conn.execute(text(
+                "ALTER TABLE threat_feed_rules "
+                "ADD CONSTRAINT uq_threat_feed_rules_key UNIQUE (ruleset, chunk_index, direction)"
+            ))
+
+        # Guard 2c: ensure uq_threat_feed_pending_rules_key exists.
+        def has_pending_constraint(sync_conn) -> bool:
+            return bool(
+                sync_conn.execute(
+                    text(
+                        "SELECT 1 FROM pg_constraint "
+                        "WHERE conname = 'uq_threat_feed_pending_rules_key'"
+                    )
+                ).scalar()
+            )
+
+        if not await conn.run_sync(has_pending_constraint):
+            log.warning(
+                "Creating uq_threat_feed_pending_rules_key constraint (migration 008 fallback guard)"
+            )
+            await conn.execute(text("""
+                DO $$
+                DECLARE cname text;
+                BEGIN
+                    SELECT c.conname INTO cname
+                    FROM pg_constraint c
+                    JOIN pg_class t ON t.oid = c.conrelid
+                    JOIN pg_namespace n ON n.oid = t.relnamespace
+                    WHERE t.relname = 'threat_feed_pending_rules' AND n.nspname = current_schema()
+                      AND c.contype = 'u'
+                      AND (
+                        SELECT array_agg(a.attname::text ORDER BY k.ordinality)
+                        FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, ordinality)
+                        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+                      ) = ARRAY['ruleset', 'chunk_index', 'action', 'payload_hash', 'status'];
+                    IF cname IS NOT NULL THEN
+                        EXECUTE format(
+                            'ALTER TABLE threat_feed_pending_rules DROP CONSTRAINT %I', cname
+                        );
+                    END IF;
+                END $$;
+            """))
+            await conn.execute(text(
+                "ALTER TABLE threat_feed_pending_rules "
+                "ADD CONSTRAINT uq_threat_feed_pending_rules_key "
+                "UNIQUE (ruleset, chunk_index, direction, action, payload_hash, status)"
+            ))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

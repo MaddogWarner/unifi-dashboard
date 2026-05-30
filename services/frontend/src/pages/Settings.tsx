@@ -5,6 +5,29 @@ import { clearActionToast, showErrorToast, showSuccessToast } from "../component
 import { getSettings, getZones, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
 
 
+const RULESET_TO_DEST_ZONE: Record<string, string[]> = {
+  WAN_IN: ["Internal", "LAN"],
+  WAN_LOCAL: ["Gateway"],
+  LAN_IN: ["Internal", "LAN"],
+  LAN_OUT: ["Internal", "LAN"],
+  LAN_LOCAL: ["Gateway", "Internal", "LAN"],
+  GUEST_IN: ["Hotspot", "Guest"],
+};
+
+function normalizeZoneNames(zones: string[], available: Set<string>): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const z of zones) {
+    const candidates = RULESET_TO_DEST_ZONE[z] ?? [z];
+    const mapped = candidates.find((c) => available.has(c)) ?? (available.has(z) ? z : null);
+    if (mapped && !seen.has(mapped)) {
+      seen.add(mapped);
+      result.push(mapped);
+    }
+  }
+  return result;
+}
+
 const defaults: Record<string, string> = {
   "unifi.host": "",
   "unifi.api_key": "",
@@ -71,7 +94,9 @@ export function Settings() {
     if (settings.data) setDraft({ ...defaults, ...settings.data });
   }, [settings.data]);
 
-  const zones = parseZones(draft["threat_feed.zones"]);
+  const availableZoneNames = new Set((zonesQuery.data ?? []).map((z) => z.name));
+  const rawZones = parseZones(draft["threat_feed.zones"]);
+  const zones = zonesQuery.isSuccess ? normalizeZoneNames(rawZones, availableZoneNames) : rawZones;
   const setValue = (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value }));
   const toggleZone = (zone: string) => {
     const next = zones.includes(zone) ? zones.filter((item) => item !== zone) : [...zones, zone];

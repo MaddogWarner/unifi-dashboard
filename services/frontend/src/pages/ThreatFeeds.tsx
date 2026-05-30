@@ -120,7 +120,7 @@ export function ThreatFeeds() {
         <span className={status.data?.enabled ? "font-semibold text-emerald-700" : "font-semibold text-slate-500"}>
           {status.data?.enabled ? "Active" : "Disabled"}
         </span>
-        <span>Mode: {status.data?.apply_mode === "auto" ? "Auto Push" : "Preview"}</span>
+        <span>Mode: {status.data?.apply_mode === "auto" ? "Auto Push" : "Manual"}</span>
         <span>Direction: {status.data?.direction_mode === "bidirectional" ? "Bidirectional" : "Inbound"}</span>
         <span>Last updated: {formatDate(status.data?.last_updated)}</span>
         <span>{(status.data?.total_entries ?? 0).toLocaleString()} IPs</span>

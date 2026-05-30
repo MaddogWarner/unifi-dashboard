@@ -270,7 +270,7 @@ export function Settings() {
           <span className="text-sm font-medium text-slate-700">Apply mode</span>
           <div className="mt-2 inline-flex rounded border border-slate-300 p-1">
             {[
-              ["preview", "Preview"],
+              ["preview", "Manual"],
               ["auto", "Auto Push"]
             ].map(([value, label]) => (
               <button

@@ -6,6 +6,7 @@ All notable project changes are recorded here.
 
 ### Fixed
 
+- Renamed the threat-feed `preview` apply mode label to **Manual** in the Settings page, Threat Feeds status summary, and README copy while preserving the existing stored `preview` setting value for compatibility.
 - Fixed approved threat-feed rules not disappearing from the pending list, with a 502 on re-approval. `apply_pending_rule()` committed `status="approved"` before the UniFi work and ran that work under `except Exception`. When the browser request was cut (rapid re-click, navigation, or an nginx read timeout on a large feed), uvicorn cancelled the handler and raised `asyncio.CancelledError` — a `BaseException` the handler did not catch — leaving the row orphaned in `"approved"`: invisible to the pending list and never reaching `"applied"`. Reworked the apply into `_do_apply_pending_rule()` wrapped in `asyncio.shield()` so an interrupted request still drives the row to a terminal `applied`/`failed` status, with an atomic `pending→approved` UPDATE-claim to block double-submits. Added `recover_orphaned_approvals()` on API startup to clear any rows already stuck in `"approved"` from before the fix. The Threat Feeds UI now refetches on action error so the list reflects true server state, and `nginx` gained a 300s `proxy_read_timeout` on `/api/` as defence-in-depth for large feeds.
 
 ## Unreleased - 2026-05-30 (session 10)

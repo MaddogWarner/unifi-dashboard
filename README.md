@@ -15,7 +15,7 @@ A self-hosted Docker Compose stack that connects to a local Ubiquiti UniFi conso
 - **Scored security assessment** — 10 automated checks (IDS enabled, default-deny WAN posture, guest isolation, logging coverage, permissive any-any rules, and more) with remediation recommendations
 - **Port scan validation** — triggers nmap against RFC1918 targets only, cross-references open ports against expected zone policies to surface enforcement gaps
 - **CVE monitoring** *(optional)* — polls the NVD modified feed and Ubiquiti security bulletins for HIGH and CRITICAL CVEs, cross-references them against firmware versions on your connected devices, and surfaces upgrade alerts
-- **Threat feed integration** *(optional, experimental)* — polls public IP blocklists (FireHOL, Spamhaus DROP, or custom feeds) and pushes them to UniFi as address groups and firewall rules; supports preview mode (manual approval per change) or auto mode
+- **Threat feed integration** *(optional, experimental)* — polls public IP blocklists (FireHOL, Spamhaus DROP, or custom feeds) and pushes them to UniFi as address groups and firewall rules; supports Manual mode (approval per change) or Auto Push mode
 - **MCP server** — 15 tools for Claude Code / Codex to query live dashboard data conversationally
 
 ---
@@ -256,7 +256,7 @@ When enabled, the threat feed collector polls configured IP blocklists and pushe
 - **Experimental status** — the feature has not been validated against all firmware versions. The firewall rule action value used (`drop`) is believed correct for the legacy `rest/firewallrule` API, but behaviour may vary by firmware version. Inspect created rules in the UniFi dashboard after first enabling the feature and confirm they are applied correctly.
 - **Firewall clutter** — each enabled ruleset gets one address group (or multiple if the combined blocklist exceeds 500 entries) and a corresponding deny rule. These are named `ThreatFeed-{RULESET}-{N}` and `Block-ThreatFeed-{RULESET}-{N}`. Disabling the feature attempts to remove them automatically; if cleanup fails, remove any remaining `ThreatFeed-*` groups and rules manually from UniFi Network → Firewall → Address Groups / Rules.
 - **Connectivity impact** — blocking large public threat feed ranges carries a small risk of false positives. Start with a single ruleset (e.g. `WAN_IN`) rather than enabling all zones at once.
-- **Preview mode is the default** — rule changes are queued as pending approvals rather than pushed immediately. Review and approve each change on the **Threat Feeds** page before it is applied to UniFi. Switch to auto mode only once you are comfortable with the feature's behaviour on your hardware.
+- **Manual mode is the default** — rule changes are queued as pending approvals rather than pushed immediately. Review and approve each change on the **Threat Feeds** page before it is applied to UniFi. Switch to Auto Push mode only once you are comfortable with the feature's behaviour on your hardware.
 
 **Minimum poll interval is 1 hour.** The default sources (FireHOL Level 1 and Spamhaus DROP) are seeded on first startup but disabled — you must explicitly enable each source from the Threat Feeds page.
 

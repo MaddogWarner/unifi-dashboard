@@ -13,6 +13,7 @@ All notable project changes are recorded here.
 
 - Restored legacy threat-feed target compatibility for zone-policy enforcement. Saved/default values such as `WAN_IN` and `WAN_LOCAL` are again mapped to valid UniFi destination zones before pending approvals are queued, while real zone names and custom zones are still validated against the live UniFi zone cache.
 - Fixed Threat Feeds pending-rule table refresh timing. Manual threat-feed refresh now waits for the collector to complete before returning success, and the pending-rule table polls alongside the status card so asynchronously queued approvals appear without a page reload. Pending-rule API errors are now surfaced inline instead of looking like an empty table.
+- Fixed 500 Internal Server Error on the Threat Feeds pending-rule table. Migration 008 used `op.add_column()` which silently does not apply through the asyncpg `run_sync` adapter (same issue as migration 005). The `direction` column was not added to `threat_feed_pending_rules`, causing `GET /api/v1/threatfeed/pending-rules` to fail. Migration 008 rewritten to use `op.execute()` raw SQL throughout (same pattern as migrations 006/007), with all steps made fully idempotent (`ADD COLUMN IF NOT EXISTS`, constraint creation guarded by `IF NOT EXISTS`). An API startup schema guard was also added to `enforce_runtime_schema_guards()` as a belt-and-suspenders fallback that adds the `direction` column immediately on boot if it is still absent.
 
 ## Unreleased - 2026-05-29 (session 9)
 

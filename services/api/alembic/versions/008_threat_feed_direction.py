@@ -7,7 +7,6 @@ Create Date: 2026-05-30
 
 from __future__ import annotations
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "008_threat_feed_direction"
@@ -17,14 +16,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "threat_feed_rules",
-        sa.Column("direction", sa.String(16), nullable=False, server_default="inbound"),
+    # Use op.execute (raw SQL) throughout to avoid the asyncpg run_sync adapter
+    # issue where op.add_column / op.alter_column may silently not apply
+    # (see migration 006 for prior precedent).
+    op.execute(
+        "ALTER TABLE threat_feed_rules "
+        "ADD COLUMN IF NOT EXISTS direction VARCHAR(16) NOT NULL DEFAULT 'inbound'"
     )
-    op.add_column(
-        "threat_feed_pending_rules",
-        sa.Column("direction", sa.String(16), nullable=False, server_default="inbound"),
+    op.execute(
+        "ALTER TABLE threat_feed_pending_rules "
+        "ADD COLUMN IF NOT EXISTS direction VARCHAR(16) NOT NULL DEFAULT 'inbound'"
     )
+    # Drop old unique constraints (pattern-matching by column set in case the
+    # constraint was auto-named by PostgreSQL).
     op.execute("""
         DO $$
         DECLARE constraint_name text;
@@ -70,34 +74,53 @@ def upgrade() -> None:
             END IF;
         END $$;
     """)
-    op.create_unique_constraint(
-        "uq_threat_feed_rules_key",
-        "threat_feed_rules",
-        ["ruleset", "chunk_index", "direction"],
-    )
-    op.create_unique_constraint(
-        "uq_threat_feed_pending_rules_key",
-        "threat_feed_pending_rules",
-        ["ruleset", "chunk_index", "direction", "action", "payload_hash", "status"],
-    )
-    op.alter_column("threat_feed_rules", "direction", server_default=None)
-    op.alter_column("threat_feed_pending_rules", "direction", server_default=None)
+    # Create new unique constraints (IF NOT EXISTS so the migration is idempotent
+    # if a prior partial run already created them).
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'uq_threat_feed_rules_key'
+            ) THEN
+                ALTER TABLE threat_feed_rules
+                ADD CONSTRAINT uq_threat_feed_rules_key
+                UNIQUE (ruleset, chunk_index, direction);
+            END IF;
+        END $$;
+    """)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'uq_threat_feed_pending_rules_key'
+            ) THEN
+                ALTER TABLE threat_feed_pending_rules
+                ADD CONSTRAINT uq_threat_feed_pending_rules_key
+                UNIQUE (ruleset, chunk_index, direction, action, payload_hash, status);
+            END IF;
+        END $$;
+    """)
+    # Remove the transient DEFAULT now that all existing rows have been filled.
+    # ALTER COLUMN DROP DEFAULT is a no-op if no default exists, so this is safe
+    # to run even if the ADD COLUMN above was a no-op (column pre-existed).
+    op.execute("ALTER TABLE threat_feed_rules ALTER COLUMN direction DROP DEFAULT")
+    op.execute("ALTER TABLE threat_feed_pending_rules ALTER COLUMN direction DROP DEFAULT")
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_threat_feed_pending_rules_key", "threat_feed_pending_rules", type_="unique")
-    op.drop_constraint("uq_threat_feed_rules_key", "threat_feed_rules", type_="unique")
+    op.execute("ALTER TABLE threat_feed_pending_rules DROP CONSTRAINT IF EXISTS uq_threat_feed_pending_rules_key")
+    op.execute("ALTER TABLE threat_feed_rules DROP CONSTRAINT IF EXISTS uq_threat_feed_rules_key")
     op.execute("DELETE FROM threat_feed_pending_rules WHERE direction <> 'inbound'")
     op.execute("DELETE FROM threat_feed_rules WHERE direction <> 'inbound'")
-    op.create_unique_constraint(
-        "uq_threat_feed_pending_rules_legacy_key",
-        "threat_feed_pending_rules",
-        ["ruleset", "chunk_index", "action", "payload_hash", "status"],
-    )
-    op.create_unique_constraint(
-        "uq_threat_feed_rules_legacy_key",
-        "threat_feed_rules",
-        ["ruleset", "chunk_index"],
-    )
-    op.drop_column("threat_feed_pending_rules", "direction")
-    op.drop_column("threat_feed_rules", "direction")
+    op.execute("""
+        ALTER TABLE threat_feed_pending_rules
+        ADD CONSTRAINT uq_threat_feed_pending_rules_legacy_key
+        UNIQUE (ruleset, chunk_index, action, payload_hash, status)
+    """)
+    op.execute("""
+        ALTER TABLE threat_feed_rules
+        ADD CONSTRAINT uq_threat_feed_rules_legacy_key
+        UNIQUE (ruleset, chunk_index)
+    """)
+    op.execute("ALTER TABLE threat_feed_pending_rules DROP COLUMN direction")
+    op.execute("ALTER TABLE threat_feed_rules DROP COLUMN direction")

@@ -219,6 +219,7 @@ async def run_migrations() -> None:
 
 async def enforce_runtime_schema_guards() -> None:
     async with engine.begin() as conn:
+        # Guard 1: ensure group_unifi_id is nullable in threat_feed_rules.
         def threat_feed_group_nullable(sync_conn) -> bool:
             inspector = inspect(sync_conn)
             table_names = set(inspector.get_table_names())
@@ -231,20 +232,58 @@ async def enforce_runtime_schema_guards() -> None:
             group_column = columns.get("group_unifi_id")
             return bool(group_column is None or group_column.get("nullable"))
 
-        if await conn.run_sync(threat_feed_group_nullable):
-            return
-        if conn.dialect.name != "postgresql":
+        if not await conn.run_sync(threat_feed_group_nullable):
+            if conn.dialect.name != "postgresql":
+                log.warning(
+                    "threat_feed_rules.group_unifi_id is not nullable, but automatic "
+                    "schema guard is only supported on PostgreSQL"
+                )
+            else:
+                log.warning(
+                    "Correcting threat_feed_rules.group_unifi_id nullable constraint after migrations"
+                )
+                await conn.execute(
+                    text("ALTER TABLE threat_feed_rules ALTER COLUMN group_unifi_id DROP NOT NULL")
+                )
+
+        # Guard 2: ensure the direction column exists in threat_feed_rules and
+        # threat_feed_pending_rules.  Migration 008 uses op.add_column which can
+        # silently not apply through the asyncpg run_sync adapter (same issue as
+        # migration 005 / group_unifi_id).  This guard adds the column with a
+        # temporary DEFAULT so existing rows get a value; the DEFAULT is removed
+        # immediately after to match the intended schema.
+        def missing_direction_tables(sync_conn) -> list[str]:
+            inspector = inspect(sync_conn)
+            table_names = set(inspector.get_table_names())
+            missing = []
+            for table in ("threat_feed_rules", "threat_feed_pending_rules"):
+                if table not in table_names:
+                    continue
+                col_names = {col["name"] for col in inspector.get_columns(table)}
+                if "direction" not in col_names:
+                    missing.append(table)
+            return missing
+
+        for table in await conn.run_sync(missing_direction_tables):
             log.warning(
-                "threat_feed_rules.group_unifi_id is not nullable, but automatic "
-                "schema guard is only supported on PostgreSQL"
+                "Adding missing direction column to %s (migration 008 fallback guard)", table
             )
-            return
-        log.warning(
-            "Correcting threat_feed_rules.group_unifi_id nullable constraint after migrations"
-        )
-        await conn.execute(
-            text("ALTER TABLE threat_feed_rules ALTER COLUMN group_unifi_id DROP NOT NULL")
-        )
+            if table == "threat_feed_rules":
+                await conn.execute(text(
+                    "ALTER TABLE threat_feed_rules "
+                    "ADD COLUMN IF NOT EXISTS direction VARCHAR(16) NOT NULL DEFAULT 'inbound'"
+                ))
+                await conn.execute(text(
+                    "ALTER TABLE threat_feed_rules ALTER COLUMN direction DROP DEFAULT"
+                ))
+            elif table == "threat_feed_pending_rules":
+                await conn.execute(text(
+                    "ALTER TABLE threat_feed_pending_rules "
+                    "ADD COLUMN IF NOT EXISTS direction VARCHAR(16) NOT NULL DEFAULT 'inbound'"
+                ))
+                await conn.execute(text(
+                    "ALTER TABLE threat_feed_pending_rules ALTER COLUMN direction DROP DEFAULT"
+                ))
 
 
 @asynccontextmanager

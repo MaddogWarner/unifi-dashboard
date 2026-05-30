@@ -8,7 +8,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.database import async_session_factory
@@ -637,13 +637,28 @@ async def _apply_change(
     await _record_rule(ruleset, idx, direction, group_id, rule_id, payload_hash)
 
 
-async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
+async def _do_apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
+    # Atomically claim the row: flip pending -> approved only if it is still
+    # pending. rowcount tells us whether this call won the claim, which stops a
+    # double-submit (rapid re-click / two browser tabs) from both pushing the
+    # same rule to UniFi. The claim is its own short transaction so no DB lock is
+    # held across the slow UniFi calls that follow.
     async with async_session_factory() as session:
-        pending = await session.get(ThreatFeedPendingRule, pending_id)
-        if pending is None:
-            raise ValueError("Pending rule not found")
-        if pending.status != "pending":
+        claimed = await session.execute(
+            update(ThreatFeedPendingRule)
+            .where(
+                ThreatFeedPendingRule.id == pending_id,
+                ThreatFeedPendingRule.status == "pending",
+            )
+            .values(status="approved", decided_at=datetime.now(UTC))
+        )
+        await session.commit()
+        if not claimed.rowcount:
+            if await session.get(ThreatFeedPendingRule, pending_id) is None:
+                raise ValueError("Pending rule not found")
             raise ValueError("Pending rule has already been decided")
+
+        pending = await session.get(ThreatFeedPendingRule, pending_id)
         existing = await session.scalar(
             select(ThreatFeedRule).where(
                 ThreatFeedRule.ruleset == pending.ruleset,
@@ -652,22 +667,19 @@ async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
             )
         )
         payload = json.loads(pending.payload_json)
-        pending.status = "approved"
-        pending.decided_at = datetime.now(UTC)
-        await session.commit()
-        detached = pending
+        claimed_rule = pending
 
     try:
         await _apply_change(
-            ruleset=detached.ruleset,
-            idx=detached.chunk_index,
-            direction=detached.direction,
-            action=detached.action,
+            ruleset=claimed_rule.ruleset,
+            idx=claimed_rule.chunk_index,
+            direction=claimed_rule.direction,
+            action=claimed_rule.action,
             payload=payload,
             existing=existing,
-            group_unifi_id=detached.group_unifi_id,
-            rule_unifi_id=detached.rule_unifi_id,
-            payload_hash=detached.payload_hash,
+            group_unifi_id=claimed_rule.group_unifi_id,
+            rule_unifi_id=claimed_rule.rule_unifi_id,
+            payload_hash=claimed_rule.payload_hash,
         )
     except Exception as exc:
         async with async_session_factory() as session:
@@ -676,6 +688,7 @@ async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
                 failed.status = "failed"
                 failed.error = str(exc)
                 await session.commit()
+                await session.refresh(failed)
                 return failed
         raise
 
@@ -688,6 +701,37 @@ async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
         await session.commit()
         await session.refresh(applied)
         return applied
+
+
+async def apply_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
+    # Shield the apply from cancellation. If the browser request is cut (rapid
+    # re-click, navigation, or an nginx read timeout on a large feed) the request
+    # handler task is cancelled, but the shielded coroutine still runs to
+    # completion and drives the row to a terminal applied/failed status. Without
+    # this the row was abandoned mid-apply in "approved" — invisible to the
+    # pending list and never applied: the original "approved rule won't
+    # disappear" bug.
+    return await asyncio.shield(_do_apply_pending_rule(pending_id))
+
+
+async def recover_orphaned_approvals() -> None:
+    # Backstop for a process killed mid-apply (where shield cannot help): rows
+    # left in "approved" are invisible to the pending list and never reach
+    # "applied". Delete them on startup so the next collector run re-queues any
+    # still-needed change as a fresh "pending" row; changes already enforced on
+    # UniFi are skipped by payload hash, and _apply_change is idempotent
+    # (get-or-create by name) so nothing is duplicated. Deleting rather than
+    # resetting to "pending" avoids colliding with the pending unique key if a
+    # refresh has meanwhile re-queued the same change.
+    async with async_session_factory() as session:
+        result = await session.execute(
+            delete(ThreatFeedPendingRule).where(ThreatFeedPendingRule.status == "approved")
+        )
+        await session.commit()
+        if result.rowcount:
+            log.warning(
+                "Cleared %s orphaned threat-feed approval(s) after restart", result.rowcount
+            )
 
 
 async def reject_pending_rule(pending_id: int) -> ThreatFeedPendingRule:

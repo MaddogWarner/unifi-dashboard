@@ -12,7 +12,10 @@ from sqlalchemy import inspect, select, text
 from app.collectors.cve_collector import run_cve_collector
 from app.collectors.poller import run_poll_loop
 from app.collectors.syslog import start_syslog_server
-from app.collectors.threat_feed_collector import run_threat_feed_collector
+from app.collectors.threat_feed_collector import (
+    recover_orphaned_approvals,
+    run_threat_feed_collector,
+)
 from app.config import settings as app_config
 from app.database import Base, async_session_factory, engine
 from app.models import cve, firewall, network, scan, settings as settings_model, threat, threatfeed  # noqa: F401
@@ -381,6 +384,7 @@ async def lifespan(app: FastAPI):
     log.info("SQLAlchemy metadata check complete")
     await seed_defaults()
     log.info("Default settings seeded")
+    await recover_orphaned_approvals()
 
     tasks = [
         asyncio.create_task(run_poll_loop()),

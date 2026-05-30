@@ -60,6 +60,9 @@ export function ThreatFeeds() {
     const message = errorMessage(err);
     setActionError(message);
     showErrorToast(message);
+    // Refetch so the list reflects true server state: a request cut by a timeout
+    // may still have applied server-side, and a failed approve stays retryable.
+    invalidate();
   };
   const onActionSuccess = () => { setActionError(null); invalidate(); };
 

@@ -16,17 +16,46 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Use op.execute (raw SQL) throughout to avoid the asyncpg run_sync adapter
-    # issue where op.add_column / op.alter_column may silently not apply
-    # (see migration 006 for prior precedent).
-    op.execute(
-        "ALTER TABLE threat_feed_rules "
-        "ADD COLUMN IF NOT EXISTS direction VARCHAR(16) NOT NULL DEFAULT 'inbound'"
-    )
-    op.execute(
-        "ALTER TABLE threat_feed_pending_rules "
-        "ADD COLUMN IF NOT EXISTS direction VARCHAR(16) NOT NULL DEFAULT 'inbound'"
-    )
+    # Fail fast (rather than hang) if autovacuum or another process holds a
+    # conflicting AccessExclusiveLock.  The container restart will retry once
+    # the blocker has cleared.
+    op.execute("SET LOCAL lock_timeout = '30s'")
+
+    # Wrap ADD COLUMN in an existence check so the ALTER TABLE (and its
+    # AccessExclusiveLock) is skipped entirely when the column was already
+    # added by a runtime guard in an older deployment.
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name   = 'threat_feed_rules'
+                  AND column_name  = 'direction'
+            ) THEN
+                ALTER TABLE threat_feed_rules
+                    ADD COLUMN direction VARCHAR(16) NOT NULL DEFAULT 'inbound';
+                ALTER TABLE threat_feed_rules
+                    ALTER COLUMN direction DROP DEFAULT;
+            END IF;
+        END $$;
+    """)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name   = 'threat_feed_pending_rules'
+                  AND column_name  = 'direction'
+            ) THEN
+                ALTER TABLE threat_feed_pending_rules
+                    ADD COLUMN direction VARCHAR(16) NOT NULL DEFAULT 'inbound';
+                ALTER TABLE threat_feed_pending_rules
+                    ALTER COLUMN direction DROP DEFAULT;
+            END IF;
+        END $$;
+    """)
     # Drop old unique constraints (pattern-matching by column set in case the
     # constraint was auto-named by PostgreSQL).
     op.execute("""
@@ -100,11 +129,7 @@ def upgrade() -> None:
             END IF;
         END $$;
     """)
-    # Remove the transient DEFAULT now that all existing rows have been filled.
-    # ALTER COLUMN DROP DEFAULT is a no-op if no default exists, so this is safe
-    # to run even if the ADD COLUMN above was a no-op (column pre-existed).
-    op.execute("ALTER TABLE threat_feed_rules ALTER COLUMN direction DROP DEFAULT")
-    op.execute("ALTER TABLE threat_feed_pending_rules ALTER COLUMN direction DROP DEFAULT")
+    # DEFAULT removal is handled inside the DO $$ ADD COLUMN blocks above.
 
 
 def downgrade() -> None:

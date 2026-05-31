@@ -10,7 +10,7 @@ class Network(Base):
     __tablename__ = "networks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    unifi_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    unifi_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(256))
     vlan_id: Mapped[int | None] = mapped_column(Integer)
     zone: Mapped[str | None] = mapped_column(String(64))

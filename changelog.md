@@ -2,6 +2,13 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-31 (session 12)
+
+### Fixed
+
+- Fixed `StringDataRightTruncationError` crashing the poller on every sync cycle. Zone-based firewall policy IDs from UniFi Network are composite strings (`siteId-zoneId1-zoneId2`) that reach 74+ characters, exceeding the `VARCHAR(64)` limit on `firewall_policies.unifi_id`, `firewall_rules.unifi_id`, `firewall_port_forwards.unifi_id`, and `networks.unifi_id`. All four columns widened to `VARCHAR(128)` via Alembic migration 009.
+- Fixed all post-startup application logs being silently discarded. `alembic/env.py` unconditionally called `fileConfig(alembic.ini)` on every migration run; Python's `fileConfig` defaults to `disable_existing_loggers=True`, which wiped out every `app.*` logger for the lifetime of the process after migrations ran. This meant the syslog receiver's startup message, unparsed-datagram warnings, and poller output never reached Docker logs. Fixed by guarding the call so `fileConfig` is skipped when Alembic is driven by the app (connection injected) and only runs for CLI invocations.
+
 ## Unreleased - 2026-05-30 (session 11)
 
 ### Fixed

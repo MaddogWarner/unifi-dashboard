@@ -10,7 +10,7 @@ class FirewallPolicy(Base):
     __tablename__ = "firewall_policies"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    unifi_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    unifi_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(256))
     action: Mapped[str] = mapped_column(String(16))
     src_zone: Mapped[str | None] = mapped_column(String(64))
@@ -28,7 +28,7 @@ class FirewallRule(Base):
     __tablename__ = "firewall_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    unifi_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    unifi_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(256))
     action: Mapped[str] = mapped_column(String(16))
     ruleset: Mapped[str | None] = mapped_column(String(32))
@@ -46,7 +46,7 @@ class FirewallPortForward(Base):
     __tablename__ = "firewall_port_forwards"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    unifi_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    unifi_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(256))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     protocol: Mapped[str | None] = mapped_column(String(16))

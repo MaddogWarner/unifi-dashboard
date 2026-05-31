@@ -2,6 +2,13 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-31 (session 13)
+
+### Fixed
+
+- Fixed missing column headers in the "Recent Firewall Logs" table. The section used a grid-based card layout with no header row, so data appeared without labels. Added a `Time / Rule / Action / Source / Destination` header row aligned to the same `md:grid-cols-5` grid.
+- Improved syslog unparsed-datagram logging for diagnostics. Previously only the first unparsed datagram was logged (truncated to 300 chars), then silence until 10,000. Now logs the first 5 datagrams in full at WARNING, and samples every 1,000 thereafter, making it possible to diagnose UniFi syslog format issues directly from `docker compose logs api`.
+
 ## Unreleased - 2026-05-31 (session 12)
 
 ### Fixed

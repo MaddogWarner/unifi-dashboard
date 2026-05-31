@@ -86,11 +86,16 @@ export function Firewall() {
         <h2 className="text-lg font-semibold text-slate-950">Recent Firewall Logs</h2>
         <div className="mt-4 grid gap-2">
           {logRows.length > 0 ? (
-            logRows.map((log) => (
-              <div key={log.id} className="grid gap-2 rounded border border-slate-100 p-3 text-sm md:grid-cols-5">
-                <span>{new Date(log.timestamp).toLocaleString()}</span><span>{log.rule_name ?? "Unknown rule"}</span><span>{log.action}</span><span>{log.src_ip}</span><span>{log.dst_ip}:{log.dst_port ?? ""}</span>
+            <>
+              <div className="grid gap-2 px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 md:grid-cols-5">
+                <span>Time</span><span>Rule</span><span>Action</span><span>Source</span><span>Destination</span>
               </div>
-            ))
+              {logRows.map((log) => (
+                <div key={log.id} className="grid gap-2 rounded border border-slate-100 p-3 text-sm md:grid-cols-5">
+                  <span>{new Date(log.timestamp).toLocaleString()}</span><span>{log.rule_name ?? "Unknown rule"}</span><span>{log.action}</span><span>{log.src_ip}</span><span>{log.dst_ip}:{log.dst_port ?? ""}</span>
+                </div>
+              ))}
+            </>
           ) : (
             <p className="text-sm text-slate-600">
               No firewall syslog events have been parsed yet. Confirm UDP 514 is published and allowed from the UniFi console.

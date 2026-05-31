@@ -69,18 +69,19 @@ class SyslogProtocol(asyncio.DatagramProtocol):
 
     def _log_unparsed(self, reason: str, line: str) -> None:
         self.unparsed_count += 1
-        if self.unparsed_count == 1:
+        if self.unparsed_count <= 5:
             log.warning(
-                "Ignoring non-firewall syslog traffic (missing %s); "
-                "this is normal if the router forwards all syslog categories. Sample: %s",
-                reason,
-                line[:300],
-            )
-        elif self.unparsed_count % 10000 == 0:
-            log.debug(
-                "Ignored %s unparsed syslog datagram(s) so far (missing %s)",
+                "Ignoring non-firewall syslog datagram #%s (missing %s): %s",
                 self.unparsed_count,
                 reason,
+                line,
+            )
+        elif self.unparsed_count % 1000 == 0:
+            log.warning(
+                "Ignored %s non-firewall syslog datagrams so far (missing %s); latest: %s",
+                self.unparsed_count,
+                reason,
+                line,
             )
 
 

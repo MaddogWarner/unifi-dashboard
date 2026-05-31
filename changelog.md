@@ -2,6 +2,16 @@
 
 All notable project changes are recorded here.
 
+## [1.0.3] - 2026-06-01
+
+### Fixed
+
+- User creation via admin now passes `safe=True` to `user_manager.create()`,
+  ensuring the fastapi-users password-validation path is exercised consistently
+  for all accounts regardless of who creates them.
+- Deleting the last remaining superuser account is now blocked at the API
+  level (HTTP 400) to prevent administrator lockout with no in-app recovery.
+
 ## [1.0.2] - 2026-06-01
 
 ### Fixed

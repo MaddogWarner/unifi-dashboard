@@ -83,7 +83,8 @@ async def create_user(
 
     try:
         new_user = await user_manager.create(
-            UserCreate(email=body.email, password=body.password, is_active=True)
+            UserCreate(email=body.email, password=body.password, is_active=True),
+            safe=True,
         )
     except UserAlreadyExists as exc:
         raise HTTPException(
@@ -103,5 +104,11 @@ async def delete_user(
     user = await user_manager.user_db.get(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.is_superuser:
+        superuser_count = await user_manager.user_db.session.scalar(
+            select(func.count()).select_from(User).where(User.is_superuser.is_(True))
+        )
+        if (superuser_count or 0) <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last superuser")
     await user_manager.user_db.delete(user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

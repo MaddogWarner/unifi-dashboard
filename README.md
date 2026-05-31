@@ -23,7 +23,7 @@ A self-hosted Docker Compose stack that connects to a local Ubiquiti UniFi conso
 ## Architecture
 
 ```text
-nginx (:80)
+nginx (:443 HTTPS, :80 -> redirect)
  ├── /api/*   →  api:8000      FastAPI + SQLAlchemy, polls UniFi API every 60s
  └── /*       →  frontend      React SPA served by nginx (built from Vite)
 
@@ -84,7 +84,7 @@ docker compose up -d
 docker compose ps
 ```
 
-The dashboard will be available at `http://<host-ip>`.
+The dashboard will be available at `https://<host-ip>`. HTTP requests to port 80 redirect to HTTPS.
 
 ### Option B — Build from source
 
@@ -95,6 +95,38 @@ cp .env.example .env
 nano .env   # set UNIFI_HOST, UNIFI_API_KEY, UNIFI_SITE, POSTGRES_PASSWORD
 docker compose up --build -d
 ```
+
+The dashboard will be available at `https://<host-ip>`. HTTP requests to port 80 redirect to HTTPS.
+
+---
+
+## TLS / HTTPS
+
+The dashboard runs HTTPS on port 443 by default. HTTP port 80 redirects to HTTPS.
+
+### Self-signed certificate (default)
+
+On first start, nginx automatically generates a self-signed RSA 2048 certificate valid for 10 years and writes it to `certs/server.crt` and `certs/server.key`. Your browser will warn about an untrusted certificate. This is expected for a self-hosted LAN dashboard; add a permanent browser exception.
+
+### Custom certificate
+
+1. Obtain a certificate and private key in PEM format from your private CA, pfSense/OPNsense PKI, or `openssl`.
+2. Name them `server.crt` (full certificate chain) and `server.key` (private key).
+3. Place both files in the `certs/` directory at the project root before starting the stack.
+4. Start or restart nginx: `docker compose restart nginx`
+
+The entrypoint only generates a self-signed cert if either file is missing. Existing complete certificate pairs are never overwritten.
+
+### Let's Encrypt (certbot)
+
+Symlink your Certbot live directory into `certs/`:
+
+```bash
+ln -sf /etc/letsencrypt/live/yourdomain/fullchain.pem certs/server.crt
+ln -sf /etc/letsencrypt/live/yourdomain/privkey.pem certs/server.key
+```
+
+Add a certbot deploy hook to run `docker compose restart nginx` after each renewal.
 
 ### Stopping and upgrading
 

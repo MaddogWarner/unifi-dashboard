@@ -2,6 +2,20 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-31 (session 14)
+
+### Added
+
+- HTTPS support for the dashboard through nginx. Port 443 is now the primary endpoint; HTTP port 80 redirects to HTTPS with a 301.
+- Self-signed TLS certificate generation on first nginx container start if no certificate pair is present in the `certs/` directory. The generated certificate is RSA 2048, valid for 10 years, and written to `certs/server.crt` and `certs/server.key`.
+- TLS configuration for TLSv1.2 and TLSv1.3 only, ECDHE cipher preference, a 1-year `Strict-Transport-Security` header, and a 10 MB shared session cache.
+- Custom certificate support. Place `server.crt` and `server.key` in `certs/` before starting nginx and the entrypoint skips self-signed certificate generation.
+
+### Notes
+
+- The UniFi API exchange was already over HTTPS (`UNIFI_HOST=https://...`) with `UNIFI_VERIFY_SSL=false`, which is expected for self-signed UniFi console certificates. No backend changes were required.
+- Production on `rpi400` keeps its custom `8999:80` nginx mapping due to the AdGuard port 80 conflict. After deploying, manually add `- "443:443"` or `- "9443:443"` if port 443 is occupied to the nginx ports block in `~/docker/unifi/unifi-dashboard/docker-compose.yml`, then run `docker compose up --build -d nginx`.
+
 ## Unreleased - 2026-05-31 (session 13)
 
 ### Fixed

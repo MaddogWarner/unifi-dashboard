@@ -11,3 +11,8 @@ pgdata/
 .venv/
 coverage/
 codex-plan.md
+
+# TLS certificates
+certs/*.key
+certs/*.crt
+certs/*.pem

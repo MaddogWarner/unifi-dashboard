@@ -1,0 +1,6 @@
+# Ignore generated and custom certificate files - never commit private keys
+*.key
+*.crt
+*.pem
+*.p12
+*.pfx

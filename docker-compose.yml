@@ -59,10 +59,14 @@ services:
 
   nginx:
     image: nginx:alpine
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/entrypoint.sh:/entrypoint.sh:ro
+      - ./certs:/etc/nginx/certs
     depends_on:
       - api
       - frontend

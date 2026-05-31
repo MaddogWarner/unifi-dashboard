@@ -6,7 +6,16 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.config import settings
 from app.database import Base
-from app.models import cve, firewall, network, scan, settings as settings_model, threat, threatfeed  # noqa: F401
+from app.models import (  # noqa: F401
+    cve,
+    firewall,
+    network,
+    scan,
+    settings as settings_model,
+    threat,
+    threatfeed,
+    user,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

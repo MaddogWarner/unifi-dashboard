@@ -158,6 +158,8 @@ Copy `.env.example` to `.env` and set the values below.
 | `POSTGRES_PASSWORD` | Yes | — | Database password — change from the example value before first run |
 | `POSTGRES_DB` | No | `unifi_dashboard` | Database name |
 | `POSTGRES_USER` | No | `dashboard` | Database user |
+| `AUTH_SECRET` | Yes | — | Long random secret used to sign dashboard JWTs. Generate with `openssl rand -hex 32` |
+| `AUTH_TOKEN_LIFETIME_SECONDS` | No | `86400` | Dashboard login token lifetime in seconds |
 | `SYSLOG_PORT` | No | `514` | UDP port the syslog receiver listens on |
 | `POLL_INTERVAL_SECONDS` | No | `60` | How often to poll the UniFi API. Minimum 10 |
 | `LOG_RETENTION_DAYS` | No | `30` | Reserved for future log expiry |
@@ -165,6 +167,25 @@ Copy `.env.example` to `.env` and set the values below.
 | `MCP_AUTH_DISABLED` | Dev only | `false` | Set `true` only for isolated local MCP development |
 | `MCP_RESOURCE_SERVER_URL` | No | `http://localhost:8001` | Public MCP URL used in protected-resource metadata |
 | `VITE_API_URL` | Dev only | `http://localhost:8000` | Frontend dev proxy target. Not used in the Docker Compose stack |
+
+---
+
+## Dashboard Authentication
+
+The dashboard requires login before accessing API-backed pages. On a fresh database, the first browser visit redirects to `/setup` so you can create the initial administrator account. The first registered account is automatically promoted to superuser, and open registration is closed after that point.
+
+Generate and set `AUTH_SECRET` before starting the API:
+
+```bash
+openssl rand -hex 32
+```
+
+```env
+AUTH_SECRET=<paste-generated-secret-here>
+AUTH_TOKEN_LIFETIME_SECONDS=86400
+```
+
+All dashboard API routes require `Authorization: Bearer <token>` except health, login, setup status, and first-time registration. Additional accounts can be created by a superuser via `POST /api/v1/users/`.
 
 ---
 
@@ -358,22 +379,30 @@ After starting the stack:
 # All services should show "healthy" or "running"
 docker compose ps
 
-# Health check (-k accepts the self-signed cert)
+# Health check (-k accepts the self-signed cert) — no auth required
 curl -k https://localhost/api/v1/health
-
-# Returns policy list (empty until UniFi credentials are configured and first poll runs)
-curl -k https://localhost/api/v1/firewall/policies
 
 # HTTP redirect check — should return 301 with Location: https://
 curl -I http://localhost/
 
+# Get a Bearer token (replace credentials with your account)
+TOKEN=$(curl -k -s -X POST https://localhost/api/v1/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin@example.com&password=yourpassword" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Returns policy list (empty until UniFi credentials are configured and first poll runs)
+curl -k -H "Authorization: Bearer $TOKEN" https://localhost/api/v1/firewall/policies
+
 # Test scanner RFC1918 guard — should return HTTP 400
 curl -k -X POST https://localhost/api/v1/scan/ \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"target":"8.8.8.8","ports":"80"}'
 
 # Trigger a valid scan
 curl -k -X POST https://localhost/api/v1/scan/ \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"target":"192.168.1.1","ports":"22,80,443"}'
 ```

@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import inspect, select, text
+from fastapi.responses import JSONResponse
+from sqlalchemy import func, inspect, select, text
 
 from app.collectors.cve_collector import run_cve_collector
 from app.collectors.poller import run_poll_loop
@@ -18,9 +19,20 @@ from app.collectors.threat_feed_collector import (
 )
 from app.config import settings as app_config
 from app.database import Base, async_session_factory, engine
-from app.models import cve, firewall, network, scan, settings as settings_model, threat, threatfeed  # noqa: F401
+from app.auth import auth_backend, current_active_user, current_superuser, fastapi_users
+from app.models import (  # noqa: F401
+    cve,
+    firewall,
+    network,
+    scan,
+    settings as settings_model,
+    threat,
+    threatfeed,
+    user,
+)
 from app.models.settings import AppSetting
 from app.models.threatfeed import ThreatFeedSource
+from app.models.user import User
 from app.routers import (
     assessment,
     cve as cve_router,
@@ -33,6 +45,8 @@ from app.routers import (
     threatfeed as threatfeed_router,
     threats,
 )
+from app.routers.auth_setup import router as setup_router
+from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -399,20 +413,72 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="UniFi Security Dashboard", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def guard_open_registration(request: Request, call_next):
+    if request.method == "POST" and request.url.path == "/api/v1/auth/register":
+        async with async_session_factory() as session:
+            count = await session.scalar(select(func.count()).select_from(User))
+            if (count or 0) > 0:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": (
+                            "Registration is closed. Use the admin user management API."
+                        )
+                    },
+                )
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
-app.include_router(fw_router.router, prefix="/api/v1/firewall", tags=["firewall"])
-app.include_router(threats.router, prefix="/api/v1/threats", tags=["threats"])
-app.include_router(networks.router, prefix="/api/v1/networks", tags=["networks"])
-app.include_router(assessment.router, prefix="/api/v1/assessment", tags=["assessment"])
-app.include_router(drift.router, prefix="/api/v1/drift", tags=["drift"])
-app.include_router(scan_router.router, prefix="/api/v1/scan", tags=["scan"])
-app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["settings"])
-app.include_router(cve_router.router, prefix="/api/v1/cve", tags=["cve"])
-app.include_router(threatfeed_router.router, prefix="/api/v1/threatfeed", tags=["threatfeed"])
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/api/v1/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/api/v1/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/api/v1/users",
+    tags=["users"],
+    dependencies=[Depends(current_superuser)],
+)
+app.include_router(setup_router, prefix="/api/v1/auth", tags=["auth"])
+
+protected = [Depends(current_active_user)]
+app.include_router(
+    fw_router.router, prefix="/api/v1/firewall", tags=["firewall"], dependencies=protected
+)
+app.include_router(threats.router, prefix="/api/v1/threats", tags=["threats"], dependencies=protected)
+app.include_router(
+    networks.router, prefix="/api/v1/networks", tags=["networks"], dependencies=protected
+)
+app.include_router(
+    assessment.router, prefix="/api/v1/assessment", tags=["assessment"], dependencies=protected
+)
+app.include_router(drift.router, prefix="/api/v1/drift", tags=["drift"], dependencies=protected)
+app.include_router(scan_router.router, prefix="/api/v1/scan", tags=["scan"], dependencies=protected)
+app.include_router(
+    settings_router.router, prefix="/api/v1/settings", tags=["settings"], dependencies=protected
+)
+app.include_router(cve_router.router, prefix="/api/v1/cve", tags=["cve"], dependencies=protected)
+app.include_router(
+    threatfeed_router.router,
+    prefix="/api/v1/threatfeed",
+    tags=["threatfeed"],
+    dependencies=protected,
+)

@@ -1,5 +1,62 @@
 const BASE = "/api/v1";
 
+function getToken(): string | null {
+  return localStorage.getItem("auth_token");
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (response.status === 401) {
+    localStorage.removeItem("auth_token");
+    window.location.href = "/login";
+    throw new Error("Session expired");
+  }
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
+function errorDetail(payload: unknown): string | null {
+  if (typeof payload === "string") return payload;
+  if (!payload || typeof payload !== "object" || !("detail" in payload)) return null;
+  const detail = (payload as { detail: unknown }).detail;
+  return typeof detail === "string" ? detail : null;
+}
+
+export async function apiLogin(email: string, password: string): Promise<string> {
+  const body = new URLSearchParams({ username: email, password });
+  const response = await fetch(`${BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString()
+  });
+  if (!response.ok) throw new Error("Invalid credentials");
+  const data = (await response.json()) as { access_token?: string };
+  if (!data.access_token) throw new Error("Login response did not include a token");
+  return data.access_token;
+}
+
+export async function getSetupStatus(): Promise<{ configured: boolean }> {
+  const response = await fetch(`${BASE}/auth/setup-status`);
+  return handleResponse<{ configured: boolean }>(response);
+}
+
+export async function apiRegister(email: string, password: string): Promise<void> {
+  const response = await fetch(`${BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(errorDetail(payload) ?? "Registration failed");
+  }
+}
+
 export type FirewallPolicy = {
   id: number;
   unifi_id: string;
@@ -205,20 +262,22 @@ export type ThreatFeedPendingRule = {
 };
 
 export async function get<T>(path: string): Promise<T> {
-  const response = await fetch(`${BASE}${path}`);
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return response.json() as Promise<T>;
+  const response = await fetch(`${BASE}${path}`, {
+    headers: authHeaders()
+  });
+  return handleResponse<T>(response);
 }
 
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: {
+      ...authHeaders(),
+      ...(body === undefined ? {} : { "Content-Type": "application/json" })
+    },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  return handleResponse<T>(response);
 }
 
 export const post = <T>(path: string, body?: unknown) => send<T>("POST", path, body);
@@ -239,11 +298,10 @@ export const getDriftDiff = (a: number, b: number) => get<DriftDiff>(`/drift/dif
 export const triggerScan = async (body: ScanRequest): Promise<{ scan_id: number }> => {
   const response = await fetch(`${BASE}/scan/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return response.json() as Promise<{ scan_id: number }>;
+  return handleResponse<{ scan_id: number }>(response);
 };
 export const getScanResult = (id: number) => get<ScanResult>(`/scan/${id}`);
 export const getSettings = () => get<Record<string, string>>("/settings/");

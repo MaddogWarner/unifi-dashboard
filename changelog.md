@@ -2,6 +2,40 @@
 
 All notable project changes are recorded here.
 
+## [1.0.0] - 2026-05-31
+
+First public release. Key capabilities shipped in this version:
+
+- **Authentication** — JWT login with bcrypt passwords, first-time setup flow, superuser account management, and protected API and frontend routes (`fastapi-users`)
+- **HTTPS** — nginx terminates TLS on port 443 with auto-generated self-signed certificate; port 80 redirects to HTTPS
+- **MCP server** — 15 tools for Claude Code / Codex with bearer-token auth, bound to `127.0.0.1:8001` by default
+- **Firewall policy visualisation** — zone-based policy matrix with per-policy hit counts matched from syslog, legacy rule fallback for older firmware
+- **IDS/IPS status and gap detection** — prevention-mode detection normalised across UniFi firmware variants
+- **Policy conflict and drift detection** — shadow and duplicate policy detection, SHA-256 snapshot hashing
+- **Scored security assessment** — 10 automated checks with remediation recommendations and port-scan evidence
+- **Syslog receiver** — live firewall event log with rule name cross-reference
+- **CVE monitoring** *(optional)* — NVD and Ubiquiti bulletin polling, firmware version correlation, per-device alerts
+- **Threat feed integration** *(optional, experimental)* — FireHOL / Spamhaus blocklist ingestion, UniFi zone policy enforcement, manual approval workflow
+- **Port scanner** — nmap with hard RFC1918 guard, WAN exposure correlation in assessment
+- **Docker Compose stack** — API, frontend, MCP, scanner, PostgreSQL, nginx; pre-built images on GHCR
+
+See the session entries below for detailed development history.
+
+---
+
+## Unreleased - 2026-05-31 (session 16)
+
+### Added
+
+- Added a JWT authentication layer using `fastapi-users[sqlalchemy]` with bcrypt-backed passwords and signed Bearer tokens.
+- Added a first-time setup flow for creating the initial administrator account. The first registered user is automatically promoted to superuser.
+- Added login and sign-out flows in the frontend, with protected routes for dashboard pages.
+- Added API protection for all existing service endpoints except `GET /api/v1/health`, `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, and `GET /api/v1/auth/setup-status`.
+- Added a registration guard that blocks open registration after the first user exists. Additional users must be created by a superuser through `POST /api/v1/users/`.
+- Added Bearer token injection for frontend API calls and global 401 handling that clears the stored token and redirects to `/login`.
+- Added Alembic migration `010_add_users_table` for the `user` table.
+- Added `AUTH_SECRET` and `AUTH_TOKEN_LIFETIME_SECONDS` configuration placeholders to `.env.example`.
+
 ## Unreleased - 2026-05-31 (session 15)
 
 ### Added

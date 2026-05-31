@@ -2,6 +2,7 @@ from app.models.firewall import FirewallLog, FirewallPolicy, FirewallPortForward
 from app.models.network import IdsConfig, Network
 from app.models.scan import ScanResult
 from app.models.threat import ThreatEvent
+from app.models.user import User
 
 __all__ = [
     "FirewallLog",
@@ -12,4 +13,5 @@ __all__ = [
     "PolicySnapshot",
     "ScanResult",
     "ThreatEvent",
+    "User",
 ]

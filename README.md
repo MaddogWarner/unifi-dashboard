@@ -340,19 +340,22 @@ After starting the stack:
 # All services should show "healthy" or "running"
 docker compose ps
 
-# Health check
-curl http://localhost/api/v1/health
+# Health check (-k accepts the self-signed cert)
+curl -k https://localhost/api/v1/health
 
 # Returns policy list (empty until UniFi credentials are configured and first poll runs)
-curl http://localhost/api/v1/firewall/policies
+curl -k https://localhost/api/v1/firewall/policies
+
+# HTTP redirect check — should return 301 with Location: https://
+curl -I http://localhost/
 
 # Test scanner RFC1918 guard — should return HTTP 400
-curl -X POST http://localhost/api/v1/scan/ \
+curl -k -X POST https://localhost/api/v1/scan/ \
   -H "Content-Type: application/json" \
   -d '{"target":"8.8.8.8","ports":"80"}'
 
 # Trigger a valid scan
-curl -X POST http://localhost/api/v1/scan/ \
+curl -k -X POST https://localhost/api/v1/scan/ \
   -H "Content-Type: application/json" \
   -d '{"target":"192.168.1.1","ports":"22,80,443"}'
 ```

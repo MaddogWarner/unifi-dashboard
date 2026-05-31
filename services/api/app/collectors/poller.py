@@ -177,10 +177,12 @@ def _first_present(data: dict, keys: tuple[str, ...]) -> Any:
 
 async def _upsert_policies(session: AsyncSession, policies: list[dict]) -> None:
     now = datetime.now(UTC)
+    seen_ids: set[str] = set()
     for policy in policies:
         uid = policy.get("_id") or policy.get("id")
         if not uid:
             continue
+        seen_ids.add(str(uid))
         existing = await session.scalar(
             select(FirewallPolicy).where(FirewallPolicy.unifi_id == uid)
         )
@@ -198,6 +200,10 @@ async def _upsert_policies(session: AsyncSession, policies: list[dict]) -> None:
         existing.schedule = policy.get("schedule")
         existing.raw_json = _json(policy)
         existing.synced_at = now
+    if seen_ids:
+        await session.execute(
+            delete(FirewallPolicy).where(FirewallPolicy.unifi_id.not_in(seen_ids))
+        )
 
 
 def _apply_zone_map(policies: list[dict], zones: list[dict]) -> list[dict]:

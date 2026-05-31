@@ -2,6 +2,15 @@
 
 All notable project changes are recorded here.
 
+## [1.0.2] - 2026-06-01
+
+### Fixed
+
+- Policy Actions chart on the dashboard now shows the correct BLOCK count.
+  Deleted UniFi firewall policies were not removed from the database on sync,
+  causing stale entries to inflate the count. The poller now deletes any
+  `firewall_policies` row whose `unifi_id` was absent from the latest sync.
+
 ## [1.0.1] - 2026-06-01
 
 ### Fixed

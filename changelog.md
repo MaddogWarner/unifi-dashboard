@@ -2,6 +2,21 @@
 
 All notable project changes are recorded here.
 
+## Unreleased - 2026-05-31 (session 15)
+
+### Added
+
+- Added bearer-token authentication to the MCP server. `MCP_AUTH_TOKEN` is now required by default, with `MCP_AUTH_DISABLED=true` available only as an explicit local-development bypass.
+- Documented Claude Code MCP configuration with an `Authorization: Bearer` header and token generation using `openssl rand -hex 32`.
+
+### Changed
+
+- Changed the default Docker Compose MCP port binding from `8001:8001` to `127.0.0.1:8001:8001`, limiting MCP access to the local host unless an operator deliberately exposes it to a trusted management network.
+
+### Notes
+
+- Existing deployments must add `MCP_AUTH_TOKEN=<long-random-token>` to `.env` before rebuilding or restarting the MCP service. If Claude Code connects from another host, adjust the MCP port binding intentionally and prefer VPN or trusted management subnet access.
+
 ## Unreleased - 2026-05-31 (session 14)
 
 ### Added

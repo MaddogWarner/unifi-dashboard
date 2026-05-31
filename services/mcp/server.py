@@ -1,12 +1,58 @@
 import os
+from secrets import compare_digest
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from pydantic import AnyHttpUrl
 
 API = os.getenv("API_BASE_URL", "http://api:8000")
-mcp = FastMCP("UniFi Security Dashboard")
+MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "").strip()
+MCP_AUTH_DISABLED = os.getenv("MCP_AUTH_DISABLED", "false").lower() == "true"
+MCP_RESOURCE_SERVER_URL = os.getenv("MCP_RESOURCE_SERVER_URL", "http://localhost:8001")
+
+
+class StaticTokenVerifier(TokenVerifier):
+    def __init__(self, expected_token: str):
+        self.expected_token = expected_token
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not compare_digest(token, self.expected_token):
+            return None
+        return AccessToken(
+            token=token,
+            client_id="unifi-dashboard-mcp",
+            scopes=["mcp:tools"],
+        )
+
+
+def _create_mcp() -> FastMCP:
+    if MCP_AUTH_DISABLED:
+        return FastMCP("UniFi Security Dashboard", host="0.0.0.0", port=8001)
+
+    if not MCP_AUTH_TOKEN or MCP_AUTH_TOKEN == "change-this-long-random-token":
+        raise RuntimeError(
+            "MCP_AUTH_TOKEN must be set to a long random value, "
+            "or set MCP_AUTH_DISABLED=true for local development only."
+        )
+
+    return FastMCP(
+        "UniFi Security Dashboard",
+        host="0.0.0.0",
+        port=8001,
+        token_verifier=StaticTokenVerifier(MCP_AUTH_TOKEN),
+        auth=AuthSettings(
+            issuer_url=AnyHttpUrl(MCP_RESOURCE_SERVER_URL),
+            resource_server_url=AnyHttpUrl(MCP_RESOURCE_SERVER_URL),
+            required_scopes=["mcp:tools"],
+        ),
+    )
+
+
+mcp = _create_mcp()
 
 
 def _get(path: str) -> Any:
@@ -129,4 +175,4 @@ def get_threatfeed_pending_rules() -> list:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=8001)
+    mcp.run(transport="streamable-http")

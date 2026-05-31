@@ -43,7 +43,7 @@ services:
     depends_on:
       - api
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
 
   scanner:
     build: ./services/scanner

@@ -161,6 +161,9 @@ Copy `.env.example` to `.env` and set the values below.
 | `SYSLOG_PORT` | No | `514` | UDP port the syslog receiver listens on |
 | `POLL_INTERVAL_SECONDS` | No | `60` | How often to poll the UniFi API. Minimum 10 |
 | `LOG_RETENTION_DAYS` | No | `30` | Reserved for future log expiry |
+| `MCP_AUTH_TOKEN` | Yes for MCP | — | Long random bearer token required by the MCP server |
+| `MCP_AUTH_DISABLED` | Dev only | `false` | Set `true` only for isolated local MCP development |
+| `MCP_RESOURCE_SERVER_URL` | No | `http://localhost:8001` | Public MCP URL used in protected-resource metadata |
 | `VITE_API_URL` | Dev only | `http://localhost:8000` | Frontend dev proxy target. Not used in the Docker Compose stack |
 
 ---
@@ -197,7 +200,17 @@ The action is encoded in the rule name suffix: `D` = drop, `A` = accept, `R` = r
 
 ## MCP Server
 
-The MCP server runs on port 8001 and exposes 10 tools that Claude Code can call to query your live UniFi security data.
+The MCP server runs on port 8001 and exposes tools that Claude Code can call to query your live UniFi security data. It requires bearer-token authentication by default and Docker Compose binds it to `127.0.0.1:8001` so it is reachable only from the host running the stack.
+
+Generate a long random token and set it in `.env` before starting the MCP service:
+
+```bash
+openssl rand -hex 32
+```
+
+```env
+MCP_AUTH_TOKEN=<paste-generated-token-here>
+```
 
 **Add to your Claude Code settings** (`~/.claude/settings.json` or project `.claude/settings.json`):
 
@@ -206,13 +219,18 @@ The MCP server runs on port 8001 and exposes 10 tools that Claude Code can call 
   "mcpServers": {
     "unifi": {
       "type": "http",
-      "url": "http://<dashboard-host>:8001"
+      "url": "http://localhost:8001",
+      "headers": {
+        "Authorization": "Bearer ${MCP_AUTH_TOKEN}"
+      }
     }
   }
 }
 ```
 
-Replace `<dashboard-host>` with `localhost` if Claude Code is running on the same machine.
+If Claude Code runs on a different host, change the Compose port binding deliberately, for example `192.168.1.150:8001:8001`, and restrict access to trusted management hosts or a VPN. Do not expose the MCP port broadly on a LAN or the internet; it can read live dashboard data and trigger RFC1918 port scans.
+
+For isolated local development only, `MCP_AUTH_DISABLED=true` starts the MCP server without bearer-token checks.
 
 **Available tools:**
 

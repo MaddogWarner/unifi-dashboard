@@ -15,7 +15,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
     window.location.href = "/login";
     throw new Error("Session expired");
   }
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(errorDetail(payload) ?? `${response.status} ${response.statusText}`);
+  }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
@@ -55,6 +58,39 @@ export async function apiRegister(email: string, password: string): Promise<void
     const payload = await response.json().catch(() => null);
     throw new Error(errorDetail(payload) ?? "Registration failed");
   }
+}
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  is_active: boolean;
+  is_superuser: boolean;
+}
+
+export async function getCurrentUser(): Promise<UserInfo> {
+  return get<UserInfo>("/auth/me");
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await post<void>("/auth/change-password", {
+    current_password: currentPassword,
+    new_password: newPassword
+  });
+}
+
+export async function listUsers(): Promise<UserInfo[]> {
+  return get<UserInfo[]>("/auth/users");
+}
+
+export async function createUser(email: string, password: string): Promise<UserInfo> {
+  return post<UserInfo>("/auth/users", { email, password });
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  await del<void>(`/auth/users/${id}`);
 }
 
 export type FirewallPolicy = {

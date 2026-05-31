@@ -2,6 +2,18 @@
 
 All notable project changes are recorded here.
 
+## [1.0.1] - 2026-06-01
+
+### Fixed
+
+- First-time setup now logs the user in and redirects to the dashboard after account creation instead of looping back to the setup page.
+
+### Added
+
+- Added a Settings page Change Password section for logged-in users, with server-side current-password verification and 12-character minimum password enforcement.
+- Added a Settings page User Management section for superusers to list accounts, create accounts, and delete accounts. Self-deletion is blocked.
+- Added API endpoints: `GET /api/v1/auth/me`, `POST /api/v1/auth/change-password`, `GET /api/v1/auth/users`, `POST /api/v1/auth/users`, and `DELETE /api/v1/auth/users/{id}`.
+
 ## [1.0.0] - 2026-05-31
 
 First public release. Key capabilities shipped in this version:

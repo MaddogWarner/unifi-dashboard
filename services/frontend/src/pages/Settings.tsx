@@ -2,7 +2,18 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
-import { getSettings, getZones, refreshCVE, refreshThreatFeed, updateSettings } from "../lib/api";
+import {
+  changePassword,
+  createUser,
+  deleteUser,
+  getCurrentUser,
+  getSettings,
+  getZones,
+  listUsers,
+  refreshCVE,
+  refreshThreatFeed,
+  updateSettings
+} from "../lib/api";
 
 
 const RULESET_TO_DEST_ZONE: Record<string, string[]> = {
@@ -48,9 +59,23 @@ export function Settings() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
   const zonesQuery = useQuery({ queryKey: ["networks-zones"], queryFn: getZones, staleTime: 60_000 });
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: getCurrentUser });
+  const isSuperuser = meQuery.data?.is_superuser ?? false;
   const [draft, setDraft] = useState(defaults);
   const [showKey, setShowKey] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [cpCurrent, setCpCurrent] = useState("");
+  const [cpNew, setCpNew] = useState("");
+  const [cpConfirm, setCpConfirm] = useState("");
+  const [cpError, setCpError] = useState<string | null>(null);
+  const [nuEmail, setNuEmail] = useState("");
+  const [nuPassword, setNuPassword] = useState("");
+  const [nuError, setNuError] = useState<string | null>(null);
+  const usersQuery = useQuery({
+    queryKey: ["users"],
+    queryFn: listUsers,
+    enabled: isSuperuser
+  });
   const save = useMutation({
     mutationFn: updateSettings,
     onMutate: clearActionToast,
@@ -74,6 +99,43 @@ export function Settings() {
       setRefreshError(message);
       showErrorToast(message);
     }
+  });
+  const changePw = useMutation({
+    mutationFn: () => changePassword(cpCurrent, cpNew),
+    onMutate: clearActionToast,
+    onSuccess: () => {
+      setCpCurrent("");
+      setCpNew("");
+      setCpConfirm("");
+      setCpError(null);
+      showSuccessToast("Password changed");
+    },
+    onError: (err) => showErrorToast(errorMessage(err))
+  });
+  const createUserMut = useMutation({
+    mutationFn: () => createUser(nuEmail, nuPassword),
+    onMutate: clearActionToast,
+    onSuccess: () => {
+      setNuEmail("");
+      setNuPassword("");
+      setNuError(null);
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      showSuccessToast("User created");
+    },
+    onError: (err) => {
+      const message = errorMessage(err);
+      setNuError(message);
+      showErrorToast(message);
+    }
+  });
+  const deleteUserMut = useMutation({
+    mutationFn: deleteUser,
+    onMutate: clearActionToast,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      showSuccessToast("User deleted");
+    },
+    onError: (err) => showErrorToast(errorMessage(err))
   });
   const feedRefresh = useMutation({
     mutationFn: refreshThreatFeed,
@@ -101,6 +163,19 @@ export function Settings() {
   const toggleZone = (zone: string) => {
     const next = zones.includes(zone) ? zones.filter((item) => item !== zone) : [...zones, zone];
     setValue("threat_feed.zones", JSON.stringify(next));
+  };
+  const handleChangePw = (event: React.FormEvent) => {
+    event.preventDefault();
+    setCpError(null);
+    if (cpNew !== cpConfirm) {
+      setCpError("Passwords do not match");
+      return;
+    }
+    if (cpNew.length < 12) {
+      setCpError("Password must be at least 12 characters");
+      return;
+    }
+    changePw.mutate();
   };
 
   return (
@@ -329,6 +404,133 @@ export function Settings() {
           )}
         </fieldset>
       </section>
+      <section className="rounded-md border border-slate-200 bg-white p-4">
+        <h2 className="text-lg font-semibold text-slate-950">Change Password</h2>
+        <form onSubmit={handleChangePw} className="mt-4 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Current password</label>
+            <input
+              type="password"
+              value={cpCurrent}
+              onChange={(event) => setCpCurrent(event.target.value)}
+              required
+              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">
+              New password <span className="text-slate-400">(min 12 characters)</span>
+            </label>
+            <input
+              type="password"
+              value={cpNew}
+              onChange={(event) => setCpNew(event.target.value)}
+              required
+              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Confirm new password</label>
+            <input
+              type="password"
+              value={cpConfirm}
+              onChange={(event) => setCpConfirm(event.target.value)}
+              required
+              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          {cpError ? <p className="text-xs text-rose-600">{cpError}</p> : null}
+          <button
+            type="submit"
+            disabled={changePw.isPending}
+            className="rounded bg-teal-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50"
+          >
+            {changePw.isPending ? "Saving..." : "Change password"}
+          </button>
+        </form>
+      </section>
+      {isSuperuser ? (
+        <section className="rounded-md border border-slate-200 bg-white p-4">
+          <h2 className="text-lg font-semibold text-slate-950">User Management</h2>
+          <div className="mt-4 mb-6 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs font-medium text-slate-500">
+                  <th className="pb-2 pr-4">Email</th>
+                  <th className="pb-2 pr-4">Role</th>
+                  <th className="pb-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(usersQuery.data ?? []).map((user) => (
+                  <tr key={user.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-4 text-slate-700">{user.email}</td>
+                    <td className="py-2 pr-4 text-slate-500">
+                      {user.is_superuser ? "Admin" : "User"}
+                    </td>
+                    <td className="py-2">
+                      <button
+                        type="button"
+                        disabled={user.id === meQuery.data?.id || deleteUserMut.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Delete ${user.email}?`)) {
+                            deleteUserMut.mutate(user.id);
+                          }
+                        }}
+                        className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {usersQuery.isLoading ? <p className="mt-2 text-xs text-slate-400">Loading...</p> : null}
+          </div>
+
+          <h3 className="mb-3 text-xs font-semibold text-slate-600">Add user</h3>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setNuError(null);
+              createUserMut.mutate();
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Email</label>
+              <input
+                type="email"
+                value={nuEmail}
+                onChange={(event) => setNuEmail(event.target.value)}
+                required
+                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Password <span className="text-slate-400">(min 12 characters)</span>
+              </label>
+              <input
+                type="password"
+                value={nuPassword}
+                onChange={(event) => setNuPassword(event.target.value)}
+                required
+                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            {nuError ? <p className="text-xs text-rose-600">{nuError}</p> : null}
+            <button
+              type="submit"
+              disabled={createUserMut.isPending}
+              className="rounded bg-teal-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50"
+            >
+              {createUserMut.isPending ? "Creating..." : "Create user"}
+            </button>
+          </form>
+        </section>
+      ) : null}
       {save.error ? <p className="text-sm text-rose-700">{String(save.error)}</p> : null}
       {refreshError ? <p className="text-sm text-rose-700">{refreshError}</p> : null}
     </div>

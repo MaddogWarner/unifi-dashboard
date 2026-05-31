@@ -1,11 +1,11 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
-import { apiRegister } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
+import { apiLogin, apiRegister } from "../lib/api";
 
 export default function Setup() {
-  const navigate = useNavigate();
+  const auth = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -27,7 +27,9 @@ export default function Setup() {
     setLoading(true);
     try {
       await apiRegister(email, password);
-      navigate("/login");
+      const token = await apiLogin(email, password);
+      auth.login(token);
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Setup failed");
     } finally {

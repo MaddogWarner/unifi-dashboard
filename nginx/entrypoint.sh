@@ -7,6 +7,7 @@ mkdir -p "$CERT_DIR"
 
 if [ ! -f "$CERT_DIR/server.crt" ] || [ ! -f "$CERT_DIR/server.key" ]; then
     echo "[nginx-entrypoint] No TLS certificate found - generating self-signed cert..."
+    apk add --no-cache openssl >/dev/null 2>&1
     openssl req -x509 -newkey rsa:2048 \
         -keyout "$CERT_DIR/server.key" \
         -out "$CERT_DIR/server.crt" \

@@ -11,7 +11,9 @@ from app.models import cve, firewall, network, scan, settings as settings_model,
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
-if config.config_file_name is not None:
+# Skip fileConfig when driven by the app (connection injected) — the app
+# manages its own logging and fileConfig would disable all app.* loggers.
+if config.config_file_name is not None and not config.attributes.get("connection"):
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata

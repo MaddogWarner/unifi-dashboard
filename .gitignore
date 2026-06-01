@@ -16,3 +16,7 @@ codex-plan.md
 certs/*.key
 certs/*.crt
 certs/*.pem
+
+# Screenshot working files
+screenshots/*-raw.png
+capture_screenshots.js

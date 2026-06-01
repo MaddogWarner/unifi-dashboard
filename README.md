@@ -6,6 +6,21 @@ A self-hosted Docker Compose stack that connects to a local Ubiquiti UniFi conso
 
 ---
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Dashboard](screenshots/dashboard.png) | ![Firewall Policies](screenshots/firewall-policies.png) |
+| *Dashboard — summary cards and policy action distribution* | *Firewall — zone-based policy matrix with allow/block posture* |
+| ![Security Assessment](screenshots/assessment.png) | ![CVE Alerts](screenshots/cve.png) |
+| *Assessment — scored security checks with remediation guidance* | *CVE Alerts — device inventory with firmware exposure view* |
+| ![Threat Feeds](screenshots/threat-feeds.png) | ![Networks & VLANs](screenshots/networks.png) |
+| *Threat Feeds — blocklist sources, MISP integration, and pending rule approvals* | *VLANs — network inventory with zone assignments* |
+| ![Scanner](screenshots/scanner.png) | ![Settings](screenshots/settings.png) |
+| *Scanner — RFC1918 port scan for firewall validation* | *Settings — UniFi connection, CVE monitoring, and threat feed controls* |
+
+---
+
 ## What it does
 
 - **Firewall policy visualisation** — zone-based policy matrix showing allow/block/reject posture across all zone pairs, with per-policy hit counts matched from syslog

@@ -2,6 +2,20 @@
 
 All notable project changes are recorded here.
 
+## [1.0.4] - 2026-06-01
+
+### Added
+
+- Added per-user light/dark theme preferences, persisted on the `user` table
+  via `PATCH /api/v1/auth/me`.
+- Added a Settings page Appearance control for switching themes.
+
+### Changed
+
+- Standardised Login and Setup on the same light-first visual palette as the
+  dashboard, with dark-mode variants across dashboard pages and shared
+  components.
+
 ## [1.0.3] - 2026-06-01
 
 ### Fixed

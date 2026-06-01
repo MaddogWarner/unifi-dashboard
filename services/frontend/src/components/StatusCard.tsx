@@ -8,14 +8,14 @@ type Props = {
 };
 
 const tones = {
-  neutral: "border-slate-200 bg-white text-slate-800",
-  good: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  warn: "border-amber-200 bg-amber-50 text-amber-900",
-  bad: "border-rose-200 bg-rose-50 text-rose-900"
+  neutral: "border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
+  good: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  warn: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
+  bad: "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-200"
 };
 
 const valueTones = {
-  neutral: "text-slate-950",
+  neutral: "text-slate-950 dark:text-slate-50",
   good: "text-emerald-950",
   warn: "text-amber-950",
   bad: "text-rose-900"
@@ -27,7 +27,7 @@ export function StatusCard({ icon: Icon, label, value, tone = "neutral" }: Props
       <div className="flex items-center gap-3">
         <Icon aria-hidden className="h-5 w-5 shrink-0" />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-600">{label}</p>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
           <p className={`mt-1 text-2xl font-semibold ${valueTones[tone]}`}>{value}</p>
         </div>
       </div>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color: #172026;
   background: #f7f9fb;
@@ -15,4 +17,9 @@ button,
 input,
 select {
   font: inherit;
+}
+
+.dark {
+  color: #f8fafc;
+  background: #020617;
 }

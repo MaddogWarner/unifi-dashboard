@@ -13,24 +13,24 @@ export function Assessment() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Security Assessment</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Security Assessment</h2>
         <p className="mt-2 text-4xl font-semibold text-teal-800">{assessment.data?.score ?? "-"}%</p>
       </section>
       {(assessment.data?.checks ?? []).map((check) => {
         const Icon = icon[check.status];
         return (
-          <section key={check.check_id} className="rounded-md border border-slate-200 bg-white p-4">
+          <section key={check.check_id} className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-start gap-3">
               <Icon className={`mt-1 h-5 w-5 ${check.status === "fail" ? "text-rose-700" : check.status === "warn" ? "text-amber-700" : "text-emerald-700"}`} />
               <div>
-                <h3 className="font-semibold text-slate-950">{check.label}</h3>
-                <p className="mt-1 text-sm text-slate-700">{check.detail}</p>
-                <p className="mt-2 text-sm text-slate-600">{check.recommendation}</p>
+                <h3 className="font-semibold text-slate-950 dark:text-slate-50">{check.label}</h3>
+                <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{check.detail}</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{check.recommendation}</p>
                 {(check.evidence?.length ?? 0) > 0 ? (
                   <div className="mt-4 overflow-x-auto">
                     <table className="min-w-full text-left text-xs">
-                      <thead className="uppercase text-slate-500">
+                      <thead className="uppercase text-slate-500 dark:text-slate-400">
                         <tr>
                           <th className="p-2">Evidence</th>
                           <th>Host</th>
@@ -42,8 +42,8 @@ export function Assessment() {
                       </thead>
                       <tbody>
                         {check.evidence?.map((item, index) => (
-                          <tr key={`${check.check_id}-${index}`} className="border-t border-slate-100">
-                            <td className="p-2 font-medium text-slate-800">{evidenceLabel(item.type)}</td>
+                          <tr key={`${check.check_id}-${index}`} className="border-t border-slate-100 dark:border-slate-800">
+                            <td className="p-2 font-medium text-slate-800 dark:text-slate-200">{evidenceLabel(item.type)}</td>
                             <td className="font-mono">{item.target_ip ?? "-"}</td>
                             <td>{item.port ? `${item.port}/${item.protocol ?? "tcp"}` : "-"}</td>
                             <td>{item.service ?? item.reason ?? "-"}</td>

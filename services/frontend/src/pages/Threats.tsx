@@ -7,22 +7,22 @@ export function Threats() {
   const ids = useQuery({ queryKey: ["ids-status"], queryFn: getIdsStatus });
   return (
     <div className="space-y-6">
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">IDS/IPS Status</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">IDS/IPS Status</h2>
         <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
           <div>Enabled: <strong>{ids.data?.enabled ? "Yes" : "No"}</strong></div>
           <div>Mode: <strong>{ids.data?.mode ?? "Unknown"}</strong></div>
           <div>Sensitivity: <strong>{ids.data?.sensitivity ?? "Unknown"}</strong></div>
         </div>
       </section>
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Threat Events</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Threat Events</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500"><tr><th className="p-2">Time</th><th>Severity</th><th>Signature</th><th>Source</th><th>Destination</th><th>Action</th></tr></thead>
+            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400"><tr><th className="p-2">Time</th><th>Severity</th><th>Signature</th><th>Source</th><th>Destination</th><th>Action</th></tr></thead>
             <tbody>
               {(threats.data ?? []).map((event) => (
-                <tr key={event.id} className="border-t border-slate-100">
+                <tr key={event.id} className="border-t border-slate-100 dark:border-slate-800">
                   <td className="p-2">{new Date(event.timestamp).toLocaleString()}</td><td><SeverityBadge severity={event.severity} /></td><td>{event.signature_name ?? event.category ?? "Unknown"}</td><td>{event.src_ip}</td><td>{event.dst_ip}</td><td>{event.action}</td>
                 </tr>
               ))}

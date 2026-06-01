@@ -28,7 +28,12 @@ class UserInfo(BaseModel):
     email: str
     is_active: bool
     is_superuser: bool
+    theme: str = "light"
     model_config = ConfigDict(from_attributes=True)
+
+
+class MeUpdateRequest(BaseModel):
+    theme: str
 
 
 @router.get("/setup-status")
@@ -40,6 +45,20 @@ async def setup_status(db: AsyncSession = Depends(get_db)) -> dict[str, bool]:
 @router.get("/me", response_model=UserInfo)
 async def get_me(user: User = Depends(current_active_user)) -> UserInfo:
     return UserInfo.model_validate(user)
+
+
+@router.patch("/me", response_model=UserInfo, status_code=status.HTTP_200_OK)
+async def update_me(
+    body: MeUpdateRequest,
+    user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserInfo:
+    if body.theme not in ("light", "dark"):
+        raise HTTPException(status_code=400, detail="theme must be 'light' or 'dark'")
+    await db.execute(update(User).where(User.id == user.id).values(theme=body.theme))
+    await db.commit()
+    updated = await db.scalar(select(User).where(User.id == user.id))
+    return UserInfo.model_validate(updated)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

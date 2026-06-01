@@ -9,10 +9,10 @@ type Props = {
 };
 
 function cellTone(action: string | null) {
-  if (action === "ALLOW") return "bg-emerald-100 text-emerald-900 hover:bg-emerald-200";
-  if (action === "BLOCK") return "bg-rose-100 text-rose-900 hover:bg-rose-200";
-  if (action === "REJECT") return "bg-amber-100 text-amber-900 hover:bg-amber-200";
-  return "bg-slate-100 text-slate-600 hover:bg-slate-200";
+  if (action === "ALLOW") return "bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-900 dark:text-emerald-100";
+  if (action === "BLOCK") return "bg-rose-100 text-rose-900 hover:bg-rose-200 dark:bg-rose-900 dark:text-rose-100";
+  if (action === "REJECT") return "bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-100";
+  return "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300";
 }
 
 export function ZoneMatrix({ policies, selected, onSelect, emptyMessage }: Props) {
@@ -22,24 +22,24 @@ export function ZoneMatrix({ policies, selected, onSelect, emptyMessage }: Props
 
   if (zones.length === 0) {
     return (
-      <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-600">
+      <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
         {emptyMessage ?? "No zone policy data synced yet."}
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
       <div className="grid min-w-[680px]" style={{ gridTemplateColumns: `140px repeat(${zones.length}, minmax(92px, 1fr))` }}>
-        <div className="border-b border-slate-200 bg-slate-50 p-3 text-xs font-semibold uppercase text-slate-500">Source</div>
+        <div className="border-b border-slate-200 bg-slate-50 p-3 text-xs font-semibold uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">Source</div>
         {zones.map((zone) => (
-          <div key={zone} className="border-b border-l border-slate-200 bg-slate-50 p-3 text-xs font-semibold uppercase text-slate-500">
+          <div key={zone} className="border-b border-l border-slate-200 bg-slate-50 p-3 text-xs font-semibold uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
             {zone}
           </div>
         ))}
         {zones.map((src) => (
           <Fragment key={src}>
-            <div key={`${src}-label`} className="border-b border-slate-200 p-3 text-sm font-semibold text-slate-800">
+            <div key={`${src}-label`} className="border-b border-slate-200 p-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:text-slate-200">
               {src}
             </div>
             {zones.map((dst) => {
@@ -50,7 +50,7 @@ export function ZoneMatrix({ policies, selected, onSelect, emptyMessage }: Props
                 <button
                   key={`${src}-${dst}`}
                   type="button"
-                  className={`h-16 border-b border-l border-slate-200 p-2 text-left text-xs ${cellTone(action)} ${
+                  className={`h-16 border-b border-l border-slate-200 p-2 text-left text-xs dark:border-slate-800 ${cellTone(action)} ${
                     isSelected ? "ring-2 ring-teal-700" : ""
                   }`}
                   onClick={() => onSelect?.({ src, dst })}

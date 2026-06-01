@@ -22,8 +22,8 @@ export function Dashboard() {
         <StatusCard icon={Network} label="Networks" value={networks.data?.length ?? "-"} />
         <StatusCard icon={Activity} label="Threat events" value={threats.data?.length ?? "-"} />
       </section>
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Policy Actions</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Policy Actions</h2>
         <div className="mt-4 h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={actionData}>

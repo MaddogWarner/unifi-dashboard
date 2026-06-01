@@ -4,7 +4,7 @@ from fastapi_users import schemas
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
-    pass
+    theme: str = "light"
 
 
 class UserCreate(schemas.BaseUserCreate):
@@ -12,4 +12,4 @@ class UserCreate(schemas.BaseUserCreate):
 
 
 class UserUpdate(schemas.BaseUserUpdate):
-    pass
+    theme: str | None = None

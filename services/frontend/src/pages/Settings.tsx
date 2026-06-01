@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
+import { useTheme } from "../contexts/ThemeContext";
 import {
   changePassword,
   createUser,
@@ -12,6 +13,7 @@ import {
   listUsers,
   refreshCVE,
   refreshThreatFeed,
+  updateMe,
   updateSettings
 } from "../lib/api";
 
@@ -57,6 +59,7 @@ const defaults: Record<string, string> = {
 
 export function Settings() {
   const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
   const zonesQuery = useQuery({ queryKey: ["networks-zones"], queryFn: getZones, staleTime: 60_000 });
   const meQuery = useQuery({ queryKey: ["me"], queryFn: getCurrentUser });
@@ -86,6 +89,16 @@ export function Settings() {
       showSuccessToast("Save successful");
     },
     onError: (err) => showErrorToast(errorMessage(err))
+  });
+  const themeMutation = useMutation({
+    mutationFn: (nextTheme: "light" | "dark") => updateMe(nextTheme),
+    onMutate: clearActionToast,
+    onSuccess: (data) => {
+      setTheme(data.theme === "dark" ? "dark" : "light");
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      showSuccessToast("Theme preference saved");
+    },
+    onError: () => showErrorToast("Failed to save theme preference")
   });
   const cveRefresh = useMutation({
     mutationFn: refreshCVE,
@@ -182,11 +195,11 @@ export function Settings() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-950">Settings</h1>
-          <p className="mt-1 text-sm text-slate-500">UniFi connection, monitoring, and enforcement controls.</p>
+          <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Settings</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">UniFi connection, monitoring, and enforcement controls.</p>
         </div>
         <button
-          className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
           onClick={() => save.mutate(draft)}
         >
           <Save className="h-4 w-4" />
@@ -194,23 +207,23 @@ export function Settings() {
         </button>
       </header>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">UniFi Connection</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">UniFi Connection</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium text-slate-700">
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Host URL
             <input
-              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm"
+              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               placeholder="https://192.168.1.1"
               value={draft["unifi.host"]}
               onChange={(event) => setValue("unifi.host", event.target.value)}
             />
           </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             API Key
             <div className="flex gap-2">
               <input
-                className="min-w-0 flex-1 rounded border border-slate-300 px-3 py-2 font-mono text-sm"
+                className="min-w-0 flex-1 rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 type={showKey ? "text" : "password"}
                 placeholder="••••••••••••••••"
                 value={draft["unifi.api_key"]}
@@ -218,7 +231,7 @@ export function Settings() {
               />
               <button
                 type="button"
-                className="rounded border border-slate-300 px-2 text-slate-500 hover:bg-slate-50"
+                className="rounded border border-slate-300 px-2 text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
                 onClick={() => setShowKey((prev) => !prev)}
                 title={showKey ? "Hide key" : "Show key"}
               >
@@ -226,16 +239,16 @@ export function Settings() {
               </button>
             </div>
           </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Site
             <input
-              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm"
+              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               placeholder="default"
               value={draft["unifi.site"]}
               onChange={(event) => setValue("unifi.site", event.target.value)}
             />
           </label>
-          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 md:pt-6">
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300 md:pt-6">
             <input
               type="checkbox"
               checked={draft["unifi.verify_ssl"] === "true"}
@@ -249,10 +262,10 @@ export function Settings() {
         </p>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Proxy</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Proxy</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"
               checked={draft["http_proxy.enabled"] === "true"}
@@ -260,10 +273,10 @@ export function Settings() {
             />
             Enable HTTP proxy
           </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Proxy URL
             <input
-              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm"
+              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={draft["http_proxy.url"]}
               onChange={(event) => setValue("http_proxy.url", event.target.value)}
               placeholder="http://proxy.example.local:8080"
@@ -272,11 +285,11 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4">
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950">CVE Monitoring</h2>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">CVE Monitoring</h2>
           <button
-            className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             onClick={() => cveRefresh.mutate()}
           >
             <ShieldCheck className="h-4 w-4" />
@@ -284,7 +297,7 @@ export function Settings() {
           </button>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"
               checked={draft["cve_monitoring.enabled"] === "true"}
@@ -292,10 +305,10 @@ export function Settings() {
             />
             Enable CVE monitoring
           </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Poll interval
             <select
-              className="rounded border border-slate-300 px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={draft["cve_monitoring.poll_interval_hours"]}
               onChange={(event) => setValue("cve_monitoring.poll_interval_hours", event.target.value)}
             >
@@ -307,11 +320,11 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4">
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950">Threat Feed</h2>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Threat Feed</h2>
           <button
-            className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             onClick={() => feedRefresh.mutate()}
           >
             <ShieldCheck className="h-4 w-4" />
@@ -319,7 +332,7 @@ export function Settings() {
           </button>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"
               checked={draft["threat_feed.enabled"] === "true"}
@@ -327,10 +340,10 @@ export function Settings() {
             />
             Enable threat feed
           </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Poll interval
             <select
-              className="rounded border border-slate-300 px-3 py-2"
+              className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               value={draft["threat_feed.poll_interval_hours"]}
               onChange={(event) => setValue("threat_feed.poll_interval_hours", event.target.value)}
             >
@@ -342,8 +355,8 @@ export function Settings() {
           </label>
         </div>
         <div className="mt-4">
-          <span className="text-sm font-medium text-slate-700">Apply mode</span>
-          <div className="mt-2 inline-flex rounded border border-slate-300 p-1">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Apply mode</span>
+          <div className="mt-2 inline-flex rounded border border-slate-300 p-1 dark:border-slate-600">
             {[
               ["preview", "Manual"],
               ["auto", "Auto Push"]
@@ -351,7 +364,7 @@ export function Settings() {
               <button
                 key={value}
                 className={`rounded px-3 py-1.5 text-sm font-medium ${
-                  draft["threat_feed.apply_mode"] === value ? "bg-slate-900 text-white" : "text-slate-700"
+                  draft["threat_feed.apply_mode"] === value ? "bg-slate-900 text-white dark:bg-teal-700" : "text-slate-700 dark:text-slate-300"
                 }`}
                 onClick={() => setValue("threat_feed.apply_mode", value)}
               >
@@ -361,8 +374,8 @@ export function Settings() {
           </div>
         </div>
         <div className="mt-4">
-          <span className="text-sm font-medium text-slate-700">Direction</span>
-          <div className="mt-2 inline-flex rounded border border-slate-300 p-1">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Direction</span>
+          <div className="mt-2 inline-flex rounded border border-slate-300 p-1 dark:border-slate-600">
             {[
               ["inbound", "Inbound"],
               ["bidirectional", "Bidirectional"]
@@ -370,7 +383,7 @@ export function Settings() {
               <button
                 key={value}
                 className={`rounded px-3 py-1.5 text-sm font-medium ${
-                  draft["threat_feed.direction_mode"] === value ? "bg-slate-900 text-white" : "text-slate-700"
+                  draft["threat_feed.direction_mode"] === value ? "bg-slate-900 text-white dark:bg-teal-700" : "text-slate-700 dark:text-slate-300"
                 }`}
                 onClick={() => setValue("threat_feed.direction_mode", value)}
               >
@@ -380,7 +393,7 @@ export function Settings() {
           </div>
         </div>
         <fieldset className="mt-4">
-          <legend className="text-sm font-medium text-slate-700">
+          <legend className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Target zones
             {zonesQuery.isSuccess && zonesQuery.data.length > 0 && (
               <span className="ml-2 text-xs font-normal text-slate-400">(from UniFi)</span>
@@ -391,7 +404,7 @@ export function Settings() {
           ) : zonesQuery.isSuccess && zonesQuery.data.length > 0 ? (
             <div className="mt-2 grid gap-2 md:grid-cols-3">
               {zonesQuery.data.map((zone) => (
-                <label key={zone.name} className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm">
+                <label key={zone.name} className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm dark:border-slate-700">
                   <input type="checkbox" checked={zones.includes(zone.name)} onChange={() => toggleZone(zone.name)} />
                   <span>{zone.name}</span>
                 </label>
@@ -404,21 +417,41 @@ export function Settings() {
           )}
         </fieldset>
       </section>
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Change Password</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="mb-4 text-lg font-semibold text-slate-950 dark:text-slate-50">Appearance</h2>
+        <div className="flex gap-2">
+          {(["light", "dark"] as const).map((nextTheme) => (
+            <button
+              key={nextTheme}
+              type="button"
+              onClick={() => themeMutation.mutate(nextTheme)}
+              disabled={theme === nextTheme || themeMutation.isPending}
+              className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
+                theme === nextTheme
+                  ? "bg-slate-900 text-white dark:bg-teal-700"
+                  : "border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              {nextTheme === "light" ? "Light" : "Dark"}
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Change Password</h2>
         <form onSubmit={handleChangePw} className="mt-4 space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Current password</label>
+            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Current password</label>
             <input
               type="password"
               value={cpCurrent}
               onChange={(event) => setCpCurrent(event.target.value)}
               required
-              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">
+            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
               New password <span className="text-slate-400">(min 12 characters)</span>
             </label>
             <input
@@ -426,20 +459,20 @@ export function Settings() {
               value={cpNew}
               onChange={(event) => setCpNew(event.target.value)}
               required
-              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Confirm new password</label>
+            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Confirm new password</label>
             <input
               type="password"
               value={cpConfirm}
               onChange={(event) => setCpConfirm(event.target.value)}
               required
-              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
-          {cpError ? <p className="text-xs text-rose-600">{cpError}</p> : null}
+          {cpError ? <p className="text-xs text-rose-600 dark:text-rose-400">{cpError}</p> : null}
           <button
             type="submit"
             disabled={changePw.isPending}
@@ -450,12 +483,12 @@ export function Settings() {
         </form>
       </section>
       {isSuperuser ? (
-        <section className="rounded-md border border-slate-200 bg-white p-4">
-          <h2 className="text-lg font-semibold text-slate-950">User Management</h2>
+        <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">User Management</h2>
           <div className="mt-4 mb-6 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-xs font-medium text-slate-500">
+                <tr className="border-b border-slate-200 text-left text-xs font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400">
                   <th className="pb-2 pr-4">Email</th>
                   <th className="pb-2 pr-4">Role</th>
                   <th className="pb-2">Actions</th>
@@ -463,9 +496,9 @@ export function Settings() {
               </thead>
               <tbody>
                 {(usersQuery.data ?? []).map((user) => (
-                  <tr key={user.id} className="border-b border-slate-100">
-                    <td className="py-2 pr-4 text-slate-700">{user.email}</td>
-                    <td className="py-2 pr-4 text-slate-500">
+                  <tr key={user.id} className="border-b border-slate-100 dark:border-slate-800">
+                    <td className="py-2 pr-4 text-slate-700 dark:text-slate-300">{user.email}</td>
+                    <td className="py-2 pr-4 text-slate-500 dark:text-slate-400">
                       {user.is_superuser ? "Admin" : "User"}
                     </td>
                     <td className="py-2">
@@ -477,7 +510,7 @@ export function Settings() {
                             deleteUserMut.mutate(user.id);
                           }
                         }}
-                        className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40"
+                        className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950"
                       >
                         Delete
                       </button>
@@ -489,7 +522,7 @@ export function Settings() {
             {usersQuery.isLoading ? <p className="mt-2 text-xs text-slate-400">Loading...</p> : null}
           </div>
 
-          <h3 className="mb-3 text-xs font-semibold text-slate-600">Add user</h3>
+          <h3 className="mb-3 text-xs font-semibold text-slate-600 dark:text-slate-400">Add user</h3>
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -499,17 +532,17 @@ export function Settings() {
             className="space-y-3"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Email</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Email</label>
               <input
                 type="email"
                 value={nuEmail}
                 onChange={(event) => setNuEmail(event.target.value)}
                 required
-                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
                 Password <span className="text-slate-400">(min 12 characters)</span>
               </label>
               <input
@@ -517,10 +550,10 @@ export function Settings() {
                 value={nuPassword}
                 onChange={(event) => setNuPassword(event.target.value)}
                 required
-                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
-            {nuError ? <p className="text-xs text-rose-600">{nuError}</p> : null}
+            {nuError ? <p className="text-xs text-rose-600 dark:text-rose-400">{nuError}</p> : null}
             <button
               type="submit"
               disabled={createUserMut.isPending}
@@ -531,8 +564,8 @@ export function Settings() {
           </form>
         </section>
       ) : null}
-      {save.error ? <p className="text-sm text-rose-700">{String(save.error)}</p> : null}
-      {refreshError ? <p className="text-sm text-rose-700">{refreshError}</p> : null}
+      {save.error ? <p className="text-sm text-rose-700 dark:text-rose-400">{String(save.error)}</p> : null}
+      {refreshError ? <p className="text-sm text-rose-700 dark:text-rose-400">{refreshError}</p> : null}
     </div>
   );
 }

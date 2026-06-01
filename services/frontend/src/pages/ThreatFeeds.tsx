@@ -104,11 +104,11 @@ export function ThreatFeeds() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-950">Threat Feeds</h1>
-          <p className="mt-1 text-sm text-slate-500">External blocklist ingestion and UniFi enforcement state.</p>
+          <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Threat Feeds</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">External blocklist ingestion and UniFi enforcement state.</p>
         </div>
         <button
-          className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
           onClick={() => refresh.mutate()}
         >
           <ShieldBan className="h-4 w-4" />
@@ -116,7 +116,7 @@ export function ThreatFeeds() {
         </button>
       </header>
 
-      <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm md:grid-cols-6">
+      <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900 md:grid-cols-6">
         <span className={status.data?.enabled ? "font-semibold text-emerald-700" : "font-semibold text-slate-500"}>
           {status.data?.enabled ? "Active" : "Disabled"}
         </span>
@@ -127,19 +127,19 @@ export function ThreatFeeds() {
         <span>{status.data?.pending_count ?? 0} pending approvals</span>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Pending Rule Changes</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Pending Rule Changes</h2>
         {actionError ? (
-          <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">{actionError}</p>
+          <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">{actionError}</p>
         ) : null}
         {pending.error ? (
-          <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">
             {errorMessage(pending.error)}
           </p>
         ) : null}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500">
+            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="p-2">Action</th>
                 <th>Ruleset</th>
@@ -153,7 +153,7 @@ export function ThreatFeeds() {
             </thead>
             <tbody>
               {(pending.data ?? []).map((rule) => (
-                <tr key={rule.id} className="border-t border-slate-100 align-top">
+                <tr key={rule.id} className="border-t border-slate-100 align-top dark:border-slate-800">
                   <td className="p-2 uppercase">{rule.action}</td>
                   <td className="p-2 font-mono text-xs">{rule.ruleset}</td>
                   <td className="p-2 capitalize">{rule.direction}</td>
@@ -163,7 +163,7 @@ export function ThreatFeeds() {
                   <td className="p-2">
                     <span className={statusClass(rule.status)}>{rule.status}</span>
                     {rule.status === "failed" && rule.error ? (
-                      <p className="mt-1 max-w-xs text-xs text-rose-700">{rule.error}</p>
+                      <p className="mt-1 max-w-xs text-xs text-rose-700 dark:text-rose-400">{rule.error}</p>
                     ) : null}
                   </td>
                   <td className="flex gap-2 py-2">
@@ -191,7 +191,7 @@ export function ThreatFeeds() {
                 </tr>
               ))}
               {!pending.data?.length ? (
-                <tr className="border-t border-slate-100">
+                <tr className="border-t border-slate-100 dark:border-slate-800">
                   <td className="p-2 text-slate-500" colSpan={8}>No pending rule changes</td>
                 </tr>
               ) : null}
@@ -200,11 +200,11 @@ export function ThreatFeeds() {
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Feed Sources</h2>
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Feed Sources</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500">
+            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="p-2">Name</th>
                 <th>URL</th>
@@ -217,7 +217,7 @@ export function ThreatFeeds() {
             </thead>
             <tbody>
               {(feeds.data ?? []).map((feed) => (
-                <tr key={feed.id} className="border-t border-slate-100 align-top">
+                <tr key={feed.id} className="border-t border-slate-100 align-top dark:border-slate-800">
                   <td className="p-2 font-medium">{feed.name}</td>
                   <td className="max-w-sm truncate font-mono text-xs">{feed.url}</td>
                   <td>
@@ -232,7 +232,7 @@ export function ThreatFeeds() {
                   <td>{feed.last_error ? <span className="text-rose-700">{feed.last_error}</span> : "OK"}</td>
                   <td>
                     <button
-                      className="rounded p-1 text-slate-600 hover:bg-slate-100"
+                      className="rounded p-1 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                       title="Remove feed"
                       onClick={() => removeFeed.mutate(feed.id)}
                     >
@@ -246,19 +246,19 @@ export function ThreatFeeds() {
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-[1fr_2fr_auto_auto_auto]">
           <input
-            className="rounded border border-slate-300 px-3 py-2 text-sm"
+            className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             placeholder="Name"
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
           />
           <input
-            className="rounded border border-slate-300 px-3 py-2 font-mono text-sm"
+            className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             placeholder="https://example.com/feed.netset"
             value={newUrl}
             onChange={(event) => setNewUrl(event.target.value)}
           />
           <button
-            className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
+            className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             onClick={() => {
               setNewName("FireHOL Level 1");
               setNewUrl("https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset");
@@ -267,7 +267,7 @@ export function ThreatFeeds() {
             FireHOL
           </button>
           <button
-            className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
+            className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             onClick={() => {
               setNewName("Spamhaus DROP");
               setNewUrl("https://www.spamhaus.org/drop/drop_v4.json");
@@ -276,7 +276,7 @@ export function ThreatFeeds() {
             Spamhaus
           </button>
           <button
-            className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
             onClick={() => addFeed.mutate()}
           >
             <Plus className="h-4 w-4" />
@@ -285,11 +285,11 @@ export function ThreatFeeds() {
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4">
+      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950">Blocked Entries</h2>
+          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Blocked Entries</h2>
           <input
-            className="rounded border border-slate-300 px-3 py-2 font-mono text-sm"
+            className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             placeholder="Search CIDR"
             value={cidrSearch}
             onChange={(event) => setCidrSearch(event.target.value)}
@@ -297,7 +297,7 @@ export function ThreatFeeds() {
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500">
+            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="p-2">CIDR</th>
                 <th>Feed Source</th>
@@ -306,7 +306,7 @@ export function ThreatFeeds() {
             </thead>
             <tbody>
               {(entries.data?.items ?? []).map((entry) => (
-                <tr key={entry.id} className="border-t border-slate-100">
+                <tr key={entry.id} className="border-t border-slate-100 dark:border-slate-800">
                   <td className="p-2 font-mono text-xs">{entry.cidr}</td>
                   <td>{entry.feed_source_name}</td>
                   <td>{formatDate(entry.added_at)}</td>

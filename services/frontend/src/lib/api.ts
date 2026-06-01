@@ -65,10 +65,15 @@ export interface UserInfo {
   email: string;
   is_active: boolean;
   is_superuser: boolean;
+  theme: string;
 }
 
 export async function getCurrentUser(): Promise<UserInfo> {
   return get<UserInfo>("/auth/me");
+}
+
+export async function updateMe(theme: string): Promise<UserInfo> {
+  return patch<UserInfo>("/auth/me", { theme });
 }
 
 export async function changePassword(
@@ -318,6 +323,7 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
 
 export const post = <T>(path: string, body?: unknown) => send<T>("POST", path, body);
 export const put = <T>(path: string, body?: unknown) => send<T>("PUT", path, body);
+export const patch = <T>(path: string, body?: unknown) => send<T>("PATCH", path, body);
 export const del = <T>(path: string) => send<T>("DELETE", path);
 
 export const getFirewallPolicies = () => get<FirewallPolicy[]>("/firewall/policies");

@@ -42,11 +42,22 @@ async def list_feeds(db: AsyncSession = Depends(get_db)) -> list[ThreatFeedSourc
 async def add_feed(
     body: ThreatFeedCreate, db: AsyncSession = Depends(get_db)
 ) -> ThreatFeedSource:
+    source_type = body.source_type or "url"
+    if source_type not in ("url", "misp"):
+        raise HTTPException(400, "source_type must be 'url' or 'misp'")
+    if source_type == "misp" and not body.api_key:
+        raise HTTPException(400, "api_key is required for MISP sources")
     try:
-        validate_outbound_url(body.url)
+        validate_outbound_url(body.url, allow_private=(source_type == "misp"))
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    feed = ThreatFeedSource(name=body.name, url=body.url)
+    feed = ThreatFeedSource(
+        name=body.name,
+        url=body.url,
+        source_type=source_type,
+        api_key=body.api_key if source_type == "misp" else None,
+        misp_verify_ssl=body.misp_verify_ssl if source_type == "misp" else False,
+    )
     db.add(feed)
     try:
         await db.commit()
@@ -67,7 +78,7 @@ async def update_feed(
     data = body.model_dump(exclude_unset=True)
     if "url" in data and data["url"]:
         try:
-            validate_outbound_url(data["url"])
+            validate_outbound_url(data["url"], allow_private=(feed.source_type == "misp"))
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
     for field, value in data.items():

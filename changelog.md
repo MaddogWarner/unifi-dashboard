@@ -2,6 +2,21 @@
 
 All notable project changes are recorded here.
 
+## [1.0.5] - 2026-06-01
+
+### Added
+
+- Added MISP threat-feed source support with per-feed API keys, source type
+  tracking, optional SSL verification, paginated `/attributes/restSearch`
+  collection, and a Threat Feeds UI toggle for URL feeds versus MISP servers.
+
+### Security
+
+- MISP sources may target RFC1918-hosted servers while loopback, link-local,
+  multicast, reserved, localhost, and metadata endpoints remain blocked.
+- MISP API keys are accepted on create/update but are not exposed in feed list
+  API responses.
+
 ## [1.0.4] - 2026-06-01
 
 ### Added

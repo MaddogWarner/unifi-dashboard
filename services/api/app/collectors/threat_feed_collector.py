@@ -265,7 +265,7 @@ async def _get_or_create_zone_policy(
     return await unifi_client.create_zone_policy(policy_payload)
 
 
-def validate_outbound_url(url: str) -> None:
+def validate_outbound_url(url: str, allow_private: bool = False) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("URL must be http or https")
@@ -276,7 +276,10 @@ def validate_outbound_url(url: str) -> None:
         ip = ipaddress.ip_address(host)
     except ValueError:
         return
-    if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved:
+    blocked = ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved
+    if not allow_private:
+        blocked = blocked or ip.is_private
+    if blocked:
         raise ValueError("private, local, multicast, or reserved IP feed URLs are not allowed")
 
 
@@ -324,6 +327,53 @@ async def _fetch_feed(url: str, proxy: str | None) -> list[str]:
     return sorted(valid)
 
 
+async def _fetch_misp_feed(source: ThreatFeedSource) -> list[str]:
+    validate_outbound_url(source.url, allow_private=True)
+    endpoint = f"{source.url.rstrip('/')}/attributes/restSearch"
+    headers = {
+        "Authorization": source.api_key or "",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    valid: set[str] = set()
+    page_size = 500
+    page = 1
+
+    async with httpx.AsyncClient(verify=bool(source.misp_verify_ssl), timeout=60) as client:
+        while True:
+            body = {
+                "returnFormat": "json",
+                "type": ["ip-src", "ip-dst", "ip-src|port", "ip-dst|port", "cidr"],
+                "to_ids": True,
+                "enforceWarninglist": True,
+                "limit": page_size,
+                "page": page,
+            }
+            response = await client.post(endpoint, json=body, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            attributes = data.get("response", {}).get("Attribute", []) or data.get("Attribute", [])
+            if not isinstance(attributes, list):
+                attributes = []
+            for attr in attributes:
+                if not isinstance(attr, dict):
+                    continue
+                value = str(attr.get("value", "")).strip()
+                if not value:
+                    continue
+                if "|" in value:
+                    value = value.split("|")[0]
+                try:
+                    valid.add(str(ipaddress.ip_network(value, strict=False)))
+                except ValueError:
+                    continue
+            if len(attributes) < page_size:
+                break
+            page += 1
+
+    return sorted(valid)
+
+
 async def _poll_all_feeds(proxy: str | None) -> None:
     async with async_session_factory() as session:
         sources = (
@@ -332,7 +382,10 @@ async def _poll_all_feeds(proxy: str | None) -> None:
 
     for source in sources:
         try:
-            entries = await _fetch_feed(source.url, proxy)
+            if getattr(source, "source_type", "url") == "misp":
+                entries = await _fetch_misp_feed(source)
+            else:
+                entries = await _fetch_feed(source.url, proxy)
             async with async_session_factory() as session:
                 await session.execute(
                     delete(ThreatFeedEntry).where(ThreatFeedEntry.feed_source_id == source.id)

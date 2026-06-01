@@ -9,6 +9,7 @@ class ThreatFeedSourceOut(BaseModel):
     id: int
     name: str
     url: str
+    source_type: str
     enabled: bool
     last_polled_at: datetime | None
     last_entry_count: int
@@ -19,12 +20,17 @@ class ThreatFeedSourceOut(BaseModel):
 class ThreatFeedCreate(BaseModel):
     name: str
     url: str
+    source_type: str = "url"
+    api_key: str | None = None
+    misp_verify_ssl: bool = False
 
 
 class ThreatFeedUpdate(BaseModel):
     name: str | None = None
     url: str | None = None
     enabled: bool | None = None
+    api_key: str | None = None
+    misp_verify_ssl: bool | None = None
 
 
 class ThreatFeedZoneRuleOut(BaseModel):

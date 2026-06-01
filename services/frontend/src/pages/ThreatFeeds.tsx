@@ -20,6 +20,9 @@ export function ThreatFeeds() {
   const [cidrSearch, setCidrSearch] = useState("");
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [newSourceType, setNewSourceType] = useState<"url" | "misp">("url");
+  const [newApiKey, setNewApiKey] = useState("");
+  const [newMispVerifySsl, setNewMispVerifySsl] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const status = useQuery({
     queryKey: ["threatfeed-status"],
@@ -44,10 +47,20 @@ export function ThreatFeeds() {
     queryClient.invalidateQueries({ queryKey: ["threatfeed-pending"] });
   };
   const addFeed = useMutation({
-    mutationFn: () => addThreatFeedSource(newName, newUrl),
+    mutationFn: () =>
+      addThreatFeedSource({
+        name: newName,
+        url: newUrl,
+        source_type: newSourceType,
+        api_key: newSourceType === "misp" ? newApiKey : undefined,
+        misp_verify_ssl: newSourceType === "misp" ? newMispVerifySsl : undefined
+      }),
     onSuccess: () => {
       setNewName("");
       setNewUrl("");
+      setNewApiKey("");
+      setNewMispVerifySsl(false);
+      setNewSourceType("url");
       invalidate();
     }
   });
@@ -218,7 +231,14 @@ export function ThreatFeeds() {
             <tbody>
               {(feeds.data ?? []).map((feed) => (
                 <tr key={feed.id} className="border-t border-slate-100 align-top dark:border-slate-800">
-                  <td className="p-2 font-medium">{feed.name}</td>
+                  <td className="p-2 font-medium">
+                    {feed.name}
+                    {feed.source_type === "misp" ? (
+                      <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900 dark:text-violet-200">
+                        MISP
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="max-w-sm truncate font-mono text-xs">{feed.url}</td>
                   <td>
                     <input
@@ -244,44 +264,101 @@ export function ThreatFeeds() {
             </tbody>
           </table>
         </div>
-        <div className="mt-4 grid gap-2 md:grid-cols-[1fr_2fr_auto_auto_auto]">
-          <input
-            className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            placeholder="Name"
-            value={newName}
-            onChange={(event) => setNewName(event.target.value)}
-          />
-          <input
-            className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            placeholder="https://example.com/feed.netset"
-            value={newUrl}
-            onChange={(event) => setNewUrl(event.target.value)}
-          />
-          <button
-            className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-            onClick={() => {
-              setNewName("FireHOL Level 1");
-              setNewUrl("https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset");
-            }}
-          >
-            FireHOL
-          </button>
-          <button
-            className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-            onClick={() => {
-              setNewName("Spamhaus DROP");
-              setNewUrl("https://www.spamhaus.org/drop/drop_v4.json");
-            }}
-          >
-            Spamhaus
-          </button>
-          <button
-            className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
-            onClick={() => addFeed.mutate()}
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </button>
+        <div className="mt-4 space-y-3">
+          <div className="inline-flex rounded border border-slate-300 p-1 dark:border-slate-600">
+            {(["url", "misp"] as const).map((sourceType) => (
+              <button
+                key={sourceType}
+                className={`rounded px-3 py-1.5 text-sm font-medium ${
+                  newSourceType === sourceType
+                    ? "bg-slate-900 text-white dark:bg-teal-700"
+                    : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                }`}
+                onClick={() => setNewSourceType(sourceType)}
+              >
+                {sourceType === "url" ? "URL Feed" : "MISP Server"}
+              </button>
+            ))}
+          </div>
+
+          {newSourceType === "url" ? (
+            <div className="grid gap-2 md:grid-cols-[1fr_2fr_auto_auto_auto]">
+              <input
+                className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                placeholder="Name"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+              />
+              <input
+                className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                placeholder="https://example.com/feed.netset"
+                value={newUrl}
+                onChange={(event) => setNewUrl(event.target.value)}
+              />
+              <button
+                className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                onClick={() => {
+                  setNewName("FireHOL Level 1");
+                  setNewUrl("https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset");
+                }}
+              >
+                FireHOL
+              </button>
+              <button
+                className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                onClick={() => {
+                  setNewName("Spamhaus DROP");
+                  setNewUrl("https://www.spamhaus.org/drop/drop_v4.json");
+                }}
+              >
+                Spamhaus
+              </button>
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+                onClick={() => addFeed.mutate()}
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-2 md:grid-cols-[1fr_2fr_2fr_auto_auto]">
+              <input
+                className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                placeholder="Name"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+              />
+              <input
+                className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                placeholder="https://misp.example.com"
+                value={newUrl}
+                onChange={(event) => setNewUrl(event.target.value)}
+              />
+              <input
+                className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                placeholder="API key"
+                type="password"
+                value={newApiKey}
+                onChange={(event) => setNewApiKey(event.target.value)}
+              />
+              <label className="flex items-center justify-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={newMispVerifySsl}
+                  onChange={(event) => setNewMispVerifySsl(event.target.checked)}
+                />
+                Verify SSL
+              </label>
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+                onClick={() => addFeed.mutate()}
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
+          )}
         </div>
       </section>
 

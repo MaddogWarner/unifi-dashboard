@@ -17,6 +17,9 @@ class ThreatFeedSource(Base):
     last_entry_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+    source_type: Mapped[str] = mapped_column(String(16), nullable=False, server_default="url")
+    api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    misp_verify_ssl: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class ThreatFeedEntry(Base):

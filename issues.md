@@ -133,6 +133,17 @@ The threat feed rule payload uses `"action": "drop"`. The UniFi legacy `rest/fir
 
 **Verify:** After deploying to a real UniFi console, enable the threat feed and inspect the created firewall rule in the UniFi dashboard. Confirm the action is applied correctly. If the rule appears with no action or an unexpected value, change `"drop"` to `"deny"` in `_rule_payloads()`.
 
+### ISS-010 — MISP source credentials cannot be edited after creation
+
+**File:** [services/frontend/src/lib/api.ts:375](services/frontend/src/lib/api.ts#L375) (`updateThreatFeedSource`)
+**Status:** Open
+
+`updateThreatFeedSource` accepts `Partial<ThreatFeedSource>`, but `ThreatFeedSource` does not include `api_key` or `misp_verify_ssl` (those fields are intentionally absent from the response type to avoid exposing the key). As a result, there is no UI path to rotate a MISP API key or toggle SSL verification after the source is created. The backend `PUT /feeds/{id}` endpoint already handles both fields via `ThreatFeedUpdate`.
+
+**Workaround:** Delete and re-add the MISP source with the new credentials.
+
+**Fix:** Add a separate `ThreatFeedUpdatePayload` type that includes `api_key` and `misp_verify_ssl`, update `updateThreatFeedSource` to accept it, and add an edit form or modal for MISP sources in `ThreatFeeds.tsx`.
+
 ---
 
 ## DISMISSED (false positives from review tools)

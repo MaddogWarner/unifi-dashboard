@@ -9,9 +9,11 @@ export function Dashboard() {
   const threats = useQuery({ queryKey: ["threats"], queryFn: getThreats });
   const networks = useQuery({ queryKey: ["networks"], queryFn: getNetworks });
   const assessment = useQuery({ queryKey: ["assessment"], queryFn: getAssessment });
-  const actionData = ["ALLOW", "BLOCK", "REJECT"].map((action) => ({
+  const actionData = Array.from(
+    new Set(policies.data?.map((p) => p.action) ?? [])
+  ).sort().map((action) => ({
     action,
-    count: policies.data?.filter((policy) => policy.action === action).length ?? 0
+    count: policies.data!.filter((p) => p.action === action).length,
   }));
 
   return (

@@ -16,9 +16,9 @@ const tones = {
 
 const valueTones = {
   neutral: "text-slate-950 dark:text-slate-50",
-  good: "text-emerald-950",
-  warn: "text-amber-950",
-  bad: "text-rose-900"
+  good: "text-emerald-950 dark:text-emerald-100",
+  warn: "text-amber-950 dark:text-amber-100",
+  bad: "text-rose-900 dark:text-rose-100"
 };
 
 export function StatusCard({ icon: Icon, label, value, tone = "neutral" }: Props) {

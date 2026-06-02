@@ -2,6 +2,17 @@
 
 All notable project changes are recorded here.
 
+## [1.0.7] - 2026-06-02
+
+### Fixed
+
+- Dark mode: stat card value text (Assessment score, Open findings, etc.) now
+  uses high-contrast light colours (`*-100`) against dark card backgrounds,
+  fixing near-invisible numbers in dark mode.
+- Dashboard Policy Actions chart no longer hardcodes ALLOW/BLOCK/REJECT — bars
+  are derived dynamically from real policy data, eliminating the phantom
+  REJECT=0 bar on UniFi Network 9+ zone-based deployments.
+
 ## [1.0.6] - 2026-06-02
 
 ### Security

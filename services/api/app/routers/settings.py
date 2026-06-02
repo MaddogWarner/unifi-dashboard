@@ -5,8 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit import audit_event
+from app.auth import current_active_user
 from app.database import get_db
 from app.models.settings import AppSetting
+from app.models.user import User
 from app.schemas.settings import SettingsUpdate
 
 router = APIRouter()
@@ -89,7 +92,9 @@ async def get_settings(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
 
 @router.put("/", response_model=dict[str, str])
 async def update_settings(
-    body: SettingsUpdate, db: AsyncSession = Depends(get_db)
+    body: SettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ) -> dict[str, str]:
     _validate_settings(body.settings)
     for key, value in body.settings.items():
@@ -99,5 +104,6 @@ async def update_settings(
         else:
             db.add(AppSetting(key=key, value=value))
     await db.commit()
+    audit_event("settings.updated", user=user, keys=",".join(sorted(body.settings)))
     rows = (await db.scalars(select(AppSetting))).all()
     return {row.key: row.value for row in rows}

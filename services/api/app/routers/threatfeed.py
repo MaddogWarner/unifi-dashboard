@@ -5,6 +5,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit import audit_event
+from app.auth import current_active_user
 from app.collectors.threat_feed_collector import (
     apply_pending_rule,
     reject_pending_rule,
@@ -19,6 +21,7 @@ from app.models.threatfeed import (
     ThreatFeedRule,
     ThreatFeedSource,
 )
+from app.models.user import User
 from app.schemas.threatfeed import (
     ThreatFeedCreate,
     ThreatFeedEntryList,
@@ -40,7 +43,9 @@ async def list_feeds(db: AsyncSession = Depends(get_db)) -> list[ThreatFeedSourc
 
 @router.post("/feeds", response_model=ThreatFeedSourceOut, status_code=201)
 async def add_feed(
-    body: ThreatFeedCreate, db: AsyncSession = Depends(get_db)
+    body: ThreatFeedCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ) -> ThreatFeedSource:
     source_type = body.source_type or "url"
     if source_type not in ("url", "misp"):
@@ -65,12 +70,22 @@ async def add_feed(
         await db.rollback()
         raise HTTPException(409, "Threat feed URL already exists") from exc
     await db.refresh(feed)
+    audit_event(
+        "threatfeed.feed_created",
+        user=user,
+        feed_id=feed.id,
+        source_type=feed.source_type,
+        name=feed.name,
+    )
     return feed
 
 
 @router.put("/feeds/{feed_id}", response_model=ThreatFeedSourceOut)
 async def update_feed(
-    feed_id: int, body: ThreatFeedUpdate, db: AsyncSession = Depends(get_db)
+    feed_id: int,
+    body: ThreatFeedUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
 ) -> ThreatFeedSource:
     feed = await db.get(ThreatFeedSource, feed_id)
     if not feed:
@@ -89,16 +104,28 @@ async def update_feed(
         await db.rollback()
         raise HTTPException(409, "Threat feed URL already exists") from exc
     await db.refresh(feed)
+    audit_event(
+        "threatfeed.feed_updated",
+        user=user,
+        feed_id=feed.id,
+        fields=",".join(sorted(data)),
+    )
     return feed
 
 
 @router.delete("/feeds/{feed_id}", status_code=204)
-async def delete_feed(feed_id: int, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_feed(
+    feed_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> None:
     feed = await db.get(ThreatFeedSource, feed_id)
     if not feed:
         raise HTTPException(404, "Threat feed not found")
+    feed_name = feed.name
     await db.delete(feed)
     await db.commit()
+    audit_event("threatfeed.feed_deleted", user=user, feed_id=feed_id, name=feed_name)
 
 
 @router.get("/status", response_model=ThreatFeedStatusOut)
@@ -182,9 +209,19 @@ async def list_pending_rules(
 
 
 @router.post("/pending-rules/{pending_id}/approve", response_model=ThreatFeedPendingRuleOut)
-async def approve_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
+async def approve_pending_rule(
+    pending_id: int,
+    user: User = Depends(current_active_user),
+) -> ThreatFeedPendingRule:
     try:
-        return await apply_pending_rule(pending_id)
+        pending = await apply_pending_rule(pending_id)
+        audit_event(
+            "threatfeed.pending_rule_approved",
+            user=user,
+            pending_id=pending_id,
+            status=pending.status,
+        )
+        return pending
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
@@ -193,9 +230,19 @@ async def approve_pending_rule(pending_id: int) -> ThreatFeedPendingRule:
 
 
 @router.post("/pending-rules/{pending_id}/reject", response_model=ThreatFeedPendingRuleOut)
-async def reject_rule(pending_id: int) -> ThreatFeedPendingRule:
+async def reject_rule(
+    pending_id: int,
+    user: User = Depends(current_active_user),
+) -> ThreatFeedPendingRule:
     try:
-        return await reject_pending_rule(pending_id)
+        pending = await reject_pending_rule(pending_id)
+        audit_event(
+            "threatfeed.pending_rule_rejected",
+            user=user,
+            pending_id=pending_id,
+            status=pending.status,
+        )
+        return pending
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
@@ -204,6 +251,7 @@ async def reject_rule(pending_id: int) -> ThreatFeedPendingRule:
 
 
 @router.post("/refresh")
-async def refresh_feeds() -> dict[str, str | bool]:
+async def refresh_feeds(user: User = Depends(current_active_user)) -> dict[str, str | bool]:
     await run_threat_feed_collector_once()
+    audit_event("threatfeed.refresh_completed", user=user)
     return {"ok": True, "message": "Threat feed refresh completed"}

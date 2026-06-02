@@ -2,6 +2,28 @@
 
 All notable project changes are recorded here.
 
+## [1.0.6] - 2026-06-02
+
+### Security
+
+- Tightened FastAPI CORS from wildcard origins, methods, and headers to the
+  configurable `API_ALLOWED_ORIGINS` environment variable with methods restricted
+  to `GET POST PUT DELETE PATCH OPTIONS` and headers to `Authorization` and
+  `Content-Type`. Same-origin nginx deployments continue to work without
+  cross-origin configuration.
+- Added nginx API rate limits for general API traffic, login attempts, scan
+  requests, and expensive threat-feed actions. Limit violations return HTTP
+  429.
+- Added nginx API request-size controls plus `X-Content-Type-Options`,
+  `Referrer-Policy`, and `Content-Security-Policy` headers while retaining the
+  existing HSTS header.
+- Added application audit log events for login outcomes, blocked registration,
+  password changes, user management, settings updates, scan requests, CVE
+  actions, and threat-feed changes. Audit details redact secret-like fields.
+- No DNS, source-IP, CIDR allow-list, or IP block-list access controls were
+  added; existing app accounts and JWT authentication remain the API approval
+  boundary.
+
 ## [1.0.5] - 2026-06-01
 
 ### Added

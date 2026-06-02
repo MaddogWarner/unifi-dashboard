@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, inspect, select, text
 
+from app.audit import audit_event
+from app.auth import auth_backend, current_active_user, current_superuser, fastapi_users
 from app.collectors.cve_collector import run_cve_collector
 from app.collectors.poller import run_poll_loop
 from app.collectors.syslog import start_syslog_server
@@ -19,7 +21,6 @@ from app.collectors.threat_feed_collector import (
 )
 from app.config import settings as app_config
 from app.database import Base, async_session_factory, engine
-from app.auth import auth_backend, current_active_user, current_superuser, fastapi_users
 from app.models import (  # noqa: F401
     cve,
     firewall,
@@ -421,6 +422,13 @@ async def guard_open_registration(request: Request, call_next):
         async with async_session_factory() as session:
             count = await session.scalar(select(func.count()).select_from(User))
             if (count or 0) > 0:
+                try:
+                    audit_event(
+                        "auth.registration_blocked",
+                        client_host=request.client.host if request.client else None,
+                    )
+                except Exception:
+                    pass
                 return JSONResponse(
                     status_code=403,
                     content={
@@ -432,12 +440,27 @@ async def guard_open_registration(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def audit_login_attempts(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "POST" and request.url.path == "/api/v1/auth/login":
+        try:
+            audit_event(
+                "auth.login_success" if response.status_code < 400 else "auth.login_failure",
+                client_host=request.client.host if request.client else None,
+                status_code=response.status_code,
+            )
+        except Exception:
+            pass
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=app_config.cors_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])

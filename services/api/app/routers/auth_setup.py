@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit import audit_event
 from app.auth import current_active_user, current_superuser, get_user_manager
 from app.database import get_db
 from app.models.user import User
@@ -80,6 +81,7 @@ async def change_password(
         .values(hashed_password=user_manager.password_helper.hash(body.new_password))
     )
     await user_manager.user_db.session.commit()
+    audit_event("auth.password_changed", user=user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -95,7 +97,7 @@ async def list_users(
 @router.post("/users", response_model=UserInfo, status_code=status.HTTP_201_CREATED)
 async def create_user(
     body: UserCreateRequest,
-    _: User = Depends(current_superuser),
+    current_user: User = Depends(current_superuser),
     user_manager=Depends(get_user_manager),
 ) -> UserInfo:
     from fastapi_users.exceptions import UserAlreadyExists
@@ -109,6 +111,12 @@ async def create_user(
         raise HTTPException(
             status_code=400, detail="A user with that email already exists"
         ) from exc
+    audit_event(
+        "auth.user_created",
+        user=current_user,
+        target_user_id=new_user.id,
+        target_email=new_user.email,
+    )
     return UserInfo.model_validate(new_user)
 
 
@@ -129,5 +137,12 @@ async def delete_user(
         )
         if (superuser_count or 0) <= 1:
             raise HTTPException(status_code=400, detail="Cannot delete the last superuser")
+    target_email = user.email
     await user_manager.user_db.delete(user)
+    audit_event(
+        "auth.user_deleted",
+        user=current_user,
+        target_user_id=user_id,
+        target_email=target_email,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

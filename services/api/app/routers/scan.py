@@ -6,9 +6,12 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit import audit_event
+from app.auth import current_active_user
 from app.config import settings
 from app.database import async_session_factory, get_db
 from app.models.scan import ScanResult
+from app.models.user import User
 from app.schemas.scan import ScanRequest, ScanResultOut, ScanTriggerOut
 
 router = APIRouter()
@@ -48,7 +51,11 @@ async def _run_scan(scan_id: int, request: ScanRequest) -> None:
 
 
 @router.post("/", response_model=ScanTriggerOut)
-async def trigger_scan(request: ScanRequest, db: AsyncSession = Depends(get_db)) -> ScanTriggerOut:
+async def trigger_scan(
+    request: ScanRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> ScanTriggerOut:
     scan = ScanResult(
         target_ip=request.target,
         scan_type=request.scan_type,
@@ -60,6 +67,14 @@ async def trigger_scan(request: ScanRequest, db: AsyncSession = Depends(get_db))
     db.add(scan)
     await db.commit()
     await db.refresh(scan)
+    audit_event(
+        "scan.triggered",
+        user=user,
+        scan_id=scan.id,
+        target=request.target,
+        scan_type=request.scan_type,
+        ports=request.ports,
+    )
     asyncio.create_task(_run_scan(scan.id, request))
     return ScanTriggerOut(scan_id=scan.id)
 

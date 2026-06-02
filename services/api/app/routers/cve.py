@@ -5,9 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit import audit_event
+from app.auth import current_active_user
 from app.collectors.cve_collector import run_cve_collector_once
 from app.database import get_db
 from app.models.cve import CVEAlert, CVEDeviceLink, DeviceInventory
+from app.models.user import User
 from app.schemas.cve import CVEAlertOut, CVEListResponse, DeviceInventoryOut
 
 router = APIRouter()
@@ -48,12 +51,17 @@ async def get_cve_alerts(
 
 
 @router.post("/alerts/{alert_id}/acknowledge")
-async def acknowledge_cve(alert_id: int, db: AsyncSession = Depends(get_db)) -> dict[str, bool]:
+async def acknowledge_cve(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> dict[str, bool]:
     alert = await db.get(CVEAlert, alert_id)
     if not alert:
         raise HTTPException(404, "CVE alert not found")
     alert.acknowledged_at = datetime.now(UTC)
     await db.commit()
+    audit_event("cve.alert_acknowledged", user=user, alert_id=alert_id, cve_id=alert.cve_id)
     return {"ok": True}
 
 
@@ -72,6 +80,7 @@ async def get_devices(db: AsyncSession = Depends(get_db)) -> list[DeviceInventor
 
 
 @router.post("/refresh")
-async def refresh_cve() -> dict[str, str | bool]:
+async def refresh_cve(user: User = Depends(current_active_user)) -> dict[str, str | bool]:
     asyncio.create_task(run_cve_collector_once())
+    audit_event("cve.refresh_triggered", user=user)
     return {"ok": True, "message": "CVE refresh triggered"}

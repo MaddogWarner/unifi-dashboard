@@ -21,6 +21,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
 
     strategy:
       fail-fast: false
@@ -63,6 +64,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
+        id: push
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -71,3 +73,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Trivy scan — ${{ matrix.service }}
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.push.outputs.digest }}
+          format: sarif
+          output: trivy-${{ matrix.service }}.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+
+      - name: Upload Trivy results — ${{ matrix.service }}
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: container-${{ matrix.service }}

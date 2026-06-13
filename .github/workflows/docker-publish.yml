@@ -86,9 +86,8 @@ jobs:
           exit-code: '0'
 
       - name: Upload Trivy results — ${{ matrix.service }}
-        if: github.event_name != 'pull_request'
+        if: always() && github.event_name != 'pull_request'
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
         with:
           sarif_file: trivy-${{ matrix.service }}.sarif
           category: container-${{ matrix.service }}

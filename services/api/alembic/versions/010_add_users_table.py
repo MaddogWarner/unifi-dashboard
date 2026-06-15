@@ -5,9 +5,10 @@ Revises: 009_widen_unifi_id
 Create Date: 2026-05-31
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "010_add_users_table"
 down_revision = "009_widen_unifi_id"

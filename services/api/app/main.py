@@ -2,7 +2,6 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi import Depends, FastAPI, Request
@@ -10,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, inspect, select, text
 
+from alembic import command
 from app.audit import audit_event
 from app.auth import auth_backend, current_active_user, current_superuser, fastapi_users
 from app.collectors.cve_collector import run_cve_collector
@@ -26,7 +26,6 @@ from app.models import (  # noqa: F401
     firewall,
     network,
     scan,
-    settings as settings_model,
     threat,
     threatfeed,
     user,
@@ -36,15 +35,25 @@ from app.models.threatfeed import ThreatFeedSource
 from app.models.user import User
 from app.routers import (
     assessment,
-    cve as cve_router,
     drift,
-    firewall as fw_router,
     health,
     networks,
-    scan as scan_router,
-    settings as settings_router,
-    threatfeed as threatfeed_router,
     threats,
+)
+from app.routers import (
+    cve as cve_router,
+)
+from app.routers import (
+    firewall as fw_router,
+)
+from app.routers import (
+    scan as scan_router,
+)
+from app.routers import (
+    settings as settings_router,
+)
+from app.routers import (
+    threatfeed as threatfeed_router,
 )
 from app.routers.auth_setup import router as setup_router
 from app.schemas.user import UserCreate, UserRead, UserUpdate

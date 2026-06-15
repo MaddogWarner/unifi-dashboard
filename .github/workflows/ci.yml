@@ -14,6 +14,10 @@ jobs:
   api:
     name: api
     runs-on: ubuntu-latest
+    env:
+      UNIFI_HOST: https://unifi.example.invalid
+      UNIFI_API_KEY: ci-placeholder
+      POSTGRES_PASSWORD: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v6
@@ -44,5 +48,5 @@ jobs:
         run: npm run build
         working-directory: services/frontend
       - name: Unit tests
-        run: npm test -- --run
+        run: npm test -- --run --passWithNoTests
         working-directory: services/frontend

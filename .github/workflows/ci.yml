@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: api
+    runs-on: ubuntu-latest
+    env:
+      UNIFI_HOST: https://unifi.example.invalid
+      UNIFI_API_KEY: ci-placeholder
+      POSTGRES_PASSWORD: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+        working-directory: services/api
+      - name: Ruff lint
+        run: ruff check .
+        working-directory: services/api
+      - name: Run tests
+        run: pytest
+        working-directory: services/api
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/frontend
+      - name: Build
+        run: npm run build
+        working-directory: services/frontend
+      - name: Unit tests
+        run: npm test -- --run --passWithNoTests
+        working-directory: services/frontend

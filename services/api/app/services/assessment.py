@@ -119,7 +119,11 @@ def check_guest_isolated(policies: list[FirewallPolicy]) -> CheckResult:
         "check_guest_isolated",
         "Guest isolation",
         "fail" if risky else "pass",
-        f"Guest/internal allow policies: {', '.join(risky)}" if risky else "Guest networks appear isolated from internal zones.",
+        (
+            f"Guest/internal allow policies: {', '.join(risky)}"
+            if risky
+            else "Guest networks appear isolated from internal zones."
+        ),
         "Block Guest/Hotspot to Internal/LAN unless a documented exception exists.",
     )
 
@@ -372,7 +376,11 @@ def check_block_policies_logged(policies: list[FirewallPolicy]) -> CheckResult:
         "check_block_policies_logged",
         "Block policy logging",
         "warn" if missing else "pass",
-        f"Block policies without logging: {', '.join(missing)}" if missing else "Block policies appear to have logging enabled.",
+        (
+            f"Block policies without logging: {', '.join(missing)}"
+            if missing
+            else "Block policies appear to have logging enabled."
+        ),
         "Enable logging for deny controls that support audit and detection use cases.",
     )
 

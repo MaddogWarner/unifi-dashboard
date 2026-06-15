@@ -8,8 +8,9 @@ Create Date: 2026-05-28
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy import inspect
+
+from alembic import op
 
 revision: str = "003_ids_config_raw_json"
 down_revision: str | None = "002_cve_threatfeed_settings"

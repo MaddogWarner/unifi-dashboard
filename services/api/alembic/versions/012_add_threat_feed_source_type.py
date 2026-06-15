@@ -7,7 +7,6 @@ Create Date: 2026-06-01
 
 from alembic import op
 
-
 revision = "012_add_threat_feed_source_type"
 down_revision = "011_add_user_theme"
 branch_labels = None

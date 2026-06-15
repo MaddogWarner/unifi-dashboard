@@ -1,9 +1,9 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool, text
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from alembic import context
 from app.config import settings
 from app.database import Base
 from app.models import (  # noqa: F401
@@ -11,7 +11,6 @@ from app.models import (  # noqa: F401
     firewall,
     network,
     scan,
-    settings as settings_model,
     threat,
     threatfeed,
     user,

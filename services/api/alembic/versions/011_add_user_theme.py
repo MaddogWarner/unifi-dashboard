@@ -5,9 +5,9 @@ Revises: 010_add_users_table
 Create Date: 2026-06-01
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "011_add_user_theme"
 down_revision = "010_add_users_table"

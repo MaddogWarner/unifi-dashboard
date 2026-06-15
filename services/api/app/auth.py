@@ -1,7 +1,6 @@
 import os
 import uuid
 from collections.abc import AsyncIterator
-from typing import Optional
 
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
@@ -28,14 +27,14 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     reset_password_token_secret = AUTH_SECRET
     verification_token_secret = AUTH_SECRET
 
-    async def on_after_register(self, user: User, request: Optional[Request] = None) -> None:
+    async def on_after_register(self, user: User, request: Request | None = None) -> None:
         count = await self.user_db.session.scalar(select(func.count()).select_from(User))
         if count == 1:
             user.is_superuser = True
             await self.user_db.session.commit()
             await self.user_db.session.refresh(user)
 
-    async def validate_password(self, password: str, user: Optional[User] = None) -> None:
+    async def validate_password(self, password: str, user: User | None = None) -> None:
         if len(password) < 12:
             raise InvalidPasswordException(reason="Password must be at least 12 characters")
 

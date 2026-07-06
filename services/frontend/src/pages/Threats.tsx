@@ -1,35 +1,41 @@
-import { useQuery } from "@tanstack/react-query";
-import { SeverityBadge } from "../components/SeverityBadge";
-import { getIdsStatus, getThreats } from "../lib/api";
+import { useSearchParams } from "react-router-dom";
+
+import { PageTabs } from "../components/PageTabs";
+import { CveTab } from "./threats/CveTab";
+import { EventsTab } from "./threats/EventsTab";
+import { FeedsTab } from "./threats/FeedsTab";
+
+const tabs = [
+  { id: "events", label: "Events" },
+  { id: "cve", label: "CVE Alerts" },
+  { id: "feeds", label: "Threat Feeds" }
+];
+
+const validTabs = new Set(tabs.map((tab) => tab.id));
 
 export function Threats() {
-  const threats = useQuery({ queryKey: ["threats"], queryFn: getThreats });
-  const ids = useQuery({ queryKey: ["ids-status"], queryFn: getIdsStatus });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") ?? "events";
+  const activeTab = validTabs.has(requestedTab) ? requestedTab : "events";
+
+  function handleTabChange(tab: string) {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", tab);
+    setSearchParams(next);
+  }
+
   return (
     <div className="space-y-6">
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">IDS/IPS Status</h2>
-        <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
-          <div>Enabled: <strong>{ids.data?.enabled ? "Yes" : "No"}</strong></div>
-          <div>Mode: <strong>{ids.data?.mode ?? "Unknown"}</strong></div>
-          <div>Sensitivity: <strong>{ids.data?.sensitivity ?? "Unknown"}</strong></div>
-        </div>
-      </section>
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Threat Events</h2>
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400"><tr><th className="p-2">Time</th><th>Severity</th><th>Signature</th><th>Source</th><th>Destination</th><th>Action</th></tr></thead>
-            <tbody>
-              {(threats.data ?? []).map((event) => (
-                <tr key={event.id} className="border-t border-slate-100 dark:border-slate-800">
-                  <td className="p-2">{new Date(event.timestamp).toLocaleString()}</td><td><SeverityBadge severity={event.severity} /></td><td>{event.signature_name ?? event.category ?? "Unknown"}</td><td>{event.src_ip}</td><td>{event.dst_ip}</td><td>{event.action}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Threats</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          IDS/IPS posture, vulnerability alerts, and external blocklist enforcement.
+        </p>
+      </header>
+      <PageTabs tabs={tabs} active={activeTab} onChange={handleTabChange} />
+      {activeTab === "events" ? <EventsTab /> : null}
+      {activeTab === "cve" ? <CveTab /> : null}
+      {activeTab === "feeds" ? <FeedsTab /> : null}
     </div>
   );
 }

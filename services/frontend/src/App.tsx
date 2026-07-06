@@ -7,16 +7,13 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import { getAssessment, getDriftSnapshots, getSetupStatus } from "./lib/api";
 import { Assessment } from "./pages/Assessment";
-import { CVEAlerts } from "./pages/CVEAlerts";
 import { Dashboard } from "./pages/Dashboard";
 import { Firewall } from "./pages/Firewall";
 import Login from "./pages/Login";
 import { Scanner } from "./pages/Scanner";
 import { Settings } from "./pages/Settings";
 import Setup from "./pages/Setup";
-import { ThreatFeeds } from "./pages/ThreatFeeds";
 import { Threats } from "./pages/Threats";
-import { VLANs } from "./pages/VLANs";
 
 export default function App() {
   const { isAuthenticated } = useAuth();
@@ -69,12 +66,9 @@ export default function App() {
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/firewall" element={<ProtectedRoute><Firewall /></ProtectedRoute>} />
           <Route path="/threats" element={<ProtectedRoute><Threats /></ProtectedRoute>} />
-          <Route path="/cve" element={<ProtectedRoute><CVEAlerts /></ProtectedRoute>} />
-          <Route
-            path="/threatfeeds"
-            element={<ProtectedRoute><ThreatFeeds /></ProtectedRoute>}
-          />
-          <Route path="/vlans" element={<ProtectedRoute><VLANs /></ProtectedRoute>} />
+          <Route path="/cve" element={<Navigate to="/threats?tab=cve" replace />} />
+          <Route path="/threatfeeds" element={<Navigate to="/threats?tab=feeds" replace />} />
+          <Route path="/vlans" element={<Navigate to="/firewall?tab=networks" replace />} />
           <Route
             path="/assessment"
             element={<ProtectedRoute><Assessment /></ProtectedRoute>}

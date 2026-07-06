@@ -11,6 +11,7 @@ class ThreatFeedSourceOut(BaseModel):
     url: str
     source_type: str
     enabled: bool
+    misp_verify_ssl: bool = False
     last_polled_at: datetime | None
     last_entry_count: int
     last_error: str | None

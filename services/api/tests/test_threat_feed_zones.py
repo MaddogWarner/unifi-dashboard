@@ -1,12 +1,17 @@
 import pytest
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.collectors import threat_feed_collector
 from app.collectors.threat_feed_collector import (
+    _do_apply_pending_rule,
     _fetch_misp_feed,
+    _normalise_rule_action,
     _normalise_target_zones,
+    _rule_payloads,
     validate_outbound_url,
 )
-from app.models.threatfeed import ThreatFeedSource
+from app.database import Base
+from app.models.threatfeed import ThreatFeedPendingRule, ThreatFeedRule, ThreatFeedSource
 
 
 def test_legacy_rulesets_map_to_available_zone_names() -> None:
@@ -50,6 +55,17 @@ def test_validate_outbound_url_allows_private_only_when_requested() -> None:
 
     with pytest.raises(ValueError):
         validate_outbound_url("https://127.0.0.1/feed.netset", allow_private=True)
+
+
+def test_rule_payloads_honour_configured_action() -> None:
+    _group_payload, rule_payload = _rule_payloads("WAN_IN", 0, ["203.0.113.10/32"], action="deny")
+
+    assert rule_payload["action"] == "deny"
+
+
+def test_invalid_rule_action_falls_back_to_drop(caplog: pytest.LogCaptureFixture) -> None:
+    assert _normalise_rule_action("allow") == "drop"
+    assert "Invalid threat_feed.rule_action" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -104,3 +120,191 @@ async def test_fetch_misp_feed_reads_envelope_fallback_and_paginates(monkeypatch
     assert posts[0]["headers"]["Authorization"] == "secret"
     assert posts[0]["json"]["page"] == 1
     assert posts[1]["json"]["page"] == 2
+
+
+@pytest.mark.asyncio
+async def test_readback_action_mismatch_records_pending_error(monkeypatch) -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        monkeypatch.setattr(threat_feed_collector, "async_session_factory", session_factory)
+        monkeypatch.setattr(threat_feed_collector, "_zone_policy_available", None)
+
+        async def fake_record_rule(
+            ruleset: str,
+            idx: int,
+            direction: str,
+            group_id: str | None,
+            rule_id: str | None,
+            payload_hash: str,
+        ) -> None:
+            return None
+
+        monkeypatch.setattr(threat_feed_collector, "_record_rule", fake_record_rule)
+
+        group_payload, rule_payload = _rule_payloads(
+            "WAN_IN",
+            0,
+            ["203.0.113.10/32"],
+            action="drop",
+        )
+        async with session_factory() as session:
+            pending = ThreatFeedPendingRule(
+                ruleset="WAN_IN",
+                chunk_index=0,
+                direction="inbound",
+                action="create",
+                group_name=group_payload["name"],
+                rule_name=rule_payload["name"],
+                entry_count=1,
+                payload_hash="payload-hash",
+                payload_json=threat_feed_collector._json(
+                    {
+                        "group": group_payload,
+                        "rule": rule_payload,
+                        "chunk": ["203.0.113.10/32"],
+                    }
+                ),
+            )
+            session.add(pending)
+            await session.commit()
+            pending_id = pending.id
+
+        calls = {"rules": 0}
+
+        async def fake_zone_policy_api_available() -> bool:
+            return False
+
+        async def fake_get_firewall_groups() -> list[dict]:
+            return []
+
+        async def fake_create_firewall_group(payload: dict) -> dict:
+            return {"_id": "group-1", **payload}
+
+        async def fake_get_firewall_rules() -> list[dict]:
+            calls["rules"] += 1
+            if calls["rules"] < 3:
+                return []
+            return [{"_id": "rule-1", "name": rule_payload["name"], "action": "deny"}]
+
+        async def fake_create_firewall_rule(payload: dict) -> dict:
+            return {"_id": "rule-1", **payload}
+
+        monkeypatch.setattr(
+            threat_feed_collector.unifi_client,
+            "zone_policy_api_available",
+            fake_zone_policy_api_available,
+        )
+        monkeypatch.setattr(
+            threat_feed_collector.unifi_client,
+            "get_firewall_groups",
+            fake_get_firewall_groups,
+        )
+        monkeypatch.setattr(
+            threat_feed_collector.unifi_client,
+            "create_firewall_group",
+            fake_create_firewall_group,
+        )
+        monkeypatch.setattr(
+            threat_feed_collector.unifi_client,
+            "get_firewall_rules",
+            fake_get_firewall_rules,
+        )
+        monkeypatch.setattr(
+            threat_feed_collector.unifi_client,
+            "create_firewall_rule",
+            fake_create_firewall_rule,
+        )
+
+        result = await _do_apply_pending_rule(pending_id)
+
+        assert result.status == "failed"
+        assert result.error is not None
+        assert "Console stored action 'deny', expected 'drop'" in result.error
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_classic_update_verifies_existing_rule_without_updating_rule(monkeypatch) -> None:
+    group_payload, rule_payload = _rule_payloads(
+        "WAN_IN",
+        1,
+        ["203.0.113.10/32"],
+        action="drop",
+    )
+    calls = {"group_updates": 0, "rule_updates": 0}
+
+    async def fake_ensure_zone_policy_probed() -> bool:
+        return False
+
+    async def fake_update_firewall_group(group_id: str, payload: dict) -> dict:
+        calls["group_updates"] += 1
+        return {"_id": group_id, **payload}
+
+    async def fake_update_firewall_rule(rule_id: str, payload: dict) -> dict:
+        calls["rule_updates"] += 1
+        raise AssertionError("classic update must not PUT the firewall rule")
+
+    async def fake_get_firewall_rules() -> list[dict]:
+        return [{"_id": "rule-2", "name": rule_payload["name"], "action": "drop"}]
+
+    async def fake_record_rule(
+        ruleset: str,
+        idx: int,
+        direction: str,
+        group_id: str | None,
+        rule_id: str | None,
+        payload_hash: str,
+    ) -> None:
+        return None
+
+    monkeypatch.setattr(
+        threat_feed_collector,
+        "_ensure_zone_policy_probed",
+        fake_ensure_zone_policy_probed,
+    )
+    monkeypatch.setattr(
+        threat_feed_collector.unifi_client,
+        "update_firewall_group",
+        fake_update_firewall_group,
+    )
+    monkeypatch.setattr(
+        threat_feed_collector.unifi_client,
+        "update_firewall_rule",
+        fake_update_firewall_rule,
+    )
+    monkeypatch.setattr(
+        threat_feed_collector.unifi_client,
+        "get_firewall_rules",
+        fake_get_firewall_rules,
+    )
+    monkeypatch.setattr(threat_feed_collector, "_record_rule", fake_record_rule)
+
+    verify_error = await threat_feed_collector._apply_change(
+        ruleset="WAN_IN",
+        idx=1,
+        direction="inbound",
+        action="update",
+        payload={
+            "group": group_payload,
+            "rule": rule_payload,
+            "chunk": ["203.0.113.10/32"],
+        },
+        existing=ThreatFeedRule(
+            ruleset="WAN_IN",
+            chunk_index=1,
+            direction="inbound",
+            group_unifi_id="group-2",
+            rule_unifi_id="rule-2",
+            payload_hash="old-hash",
+        ),
+        group_unifi_id="group-2",
+        rule_unifi_id="rule-2",
+        payload_hash="payload-hash",
+    )
+
+    assert verify_error is None
+    assert calls == {"group_updates": 1, "rule_updates": 0}

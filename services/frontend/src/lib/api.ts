@@ -122,6 +122,20 @@ export type FirewallLog = {
   src_port: number | null;
   dst_port: number | null;
   protocol: string | null;
+  interface: string | null;
+  direction: string | null;
+  matched_policy_id: number | null;
+  raw_line: string;
+};
+
+export type FirewallLogParams = {
+  skip?: number;
+  limit?: number;
+  src_ip?: string;
+  dst_ip?: string;
+  rule_name?: string;
+  action?: string;
+  from_ts?: string;
 };
 
 export type FirewallRule = {
@@ -195,6 +209,29 @@ export type AssessmentReport = {
   }>;
 };
 
+export type AttentionItem = {
+  severity: "critical" | "warning" | "info";
+  category: "connectivity" | "assessment" | "conflict" | "cve" | "syslog" | "threat";
+  title: string;
+  detail: string;
+  link: string;
+  timestamp: string | null;
+};
+
+export type DashboardStatus = {
+  unifi_reachable: boolean;
+  assessment_score: number | null;
+  last_policy_sync: string | null;
+  last_syslog_event: string | null;
+  threat_events_24h: number;
+};
+
+export type DashboardAttention = {
+  generated_at: string;
+  status: DashboardStatus;
+  items: AttentionItem[];
+};
+
 export type Snapshot = {
   id: number;
   snapshot_type: string;
@@ -264,6 +301,7 @@ export type ThreatFeedSource = {
   url: string;
   source_type: string;
   enabled: boolean;
+  misp_verify_ssl?: boolean;
   last_polled_at: string | null;
   last_entry_count: number;
   last_error: string | null;
@@ -274,6 +312,14 @@ export type ThreatFeedCreatePayload = {
   name: string;
   url: string;
   source_type?: string;
+  api_key?: string;
+  misp_verify_ssl?: boolean;
+};
+
+export type ThreatFeedUpdatePayload = {
+  name?: string;
+  url?: string;
+  enabled?: boolean;
   api_key?: string;
   misp_verify_ssl?: boolean;
 };
@@ -337,13 +383,21 @@ export const del = <T>(path: string) => send<T>("DELETE", path);
 
 export const getFirewallPolicies = () => get<FirewallPolicy[]>("/firewall/policies");
 export const getFirewallRules = () => get<FirewallRule[]>("/firewall/rules");
-export const getFirewallLogs = (params = "") => get<FirewallLog[]>(`/firewall/logs${params}`);
+export const getFirewallLogs = (params: FirewallLogParams = {}) => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  });
+  const query = search.toString();
+  return get<FirewallLog[]>(`/firewall/logs${query ? `?${query}` : ""}`);
+};
 export const getThreats = () => get<ThreatEvent[]>("/threats/events");
 export const getIdsStatus = () => get<IdsStatus>("/threats/ids-status");
 export type UnifiZone = { id: string | null; name: string };
 export const getNetworks = () => get<Network[]>("/networks/");
 export const getZones = () => get<UnifiZone[]>("/networks/zones");
 export const getAssessment = () => get<AssessmentReport>("/assessment/");
+export const getDashboardAttention = () => get<DashboardAttention>("/dashboard/attention");
 export const getDriftSnapshots = () => get<Snapshot[]>("/drift/snapshots");
 export const getDriftDiff = (a: number, b: number) => get<DriftDiff>(`/drift/diff/${a}/${b}`);
 export const triggerScan = async (body: ScanRequest): Promise<{ scan_id: number }> => {
@@ -372,7 +426,7 @@ export const refreshCVE = () => post<{ ok: boolean; message: string }>("/cve/ref
 export const getThreatFeedSources = () => get<ThreatFeedSource[]>("/threatfeed/feeds");
 export const addThreatFeedSource = (payload: ThreatFeedCreatePayload) =>
   post<ThreatFeedSource>("/threatfeed/feeds", payload);
-export const updateThreatFeedSource = (id: number, data: Partial<ThreatFeedSource>) =>
+export const updateThreatFeedSource = (id: number, data: ThreatFeedUpdatePayload) =>
   put<ThreatFeedSource>(`/threatfeed/feeds/${id}`, data);
 export const deleteThreatFeedSource = (id: number) => del<void>(`/threatfeed/feeds/${id}`);
 export const getThreatFeedStatus = () => get<ThreatFeedStatus>("/threatfeed/status");

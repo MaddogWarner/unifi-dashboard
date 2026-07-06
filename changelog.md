@@ -2,6 +2,18 @@
 
 All notable project changes are recorded here.
 
+## [2.0.0] - 2026-07-06
+
+### Changed
+
+- Rebuilt the dashboard as an attention-feed home view with a status strip,
+  replacing the previous layout.
+- Reworked the Firewall page into Overview/Policies/Logs tabs.
+- Applied a UniFi-style design system across the frontend (colours, spacing,
+  component patterns).
+- Consolidated navigation, the scanner results table, MISP credential editing,
+  and rule-action verification into the new layout.
+
 ## [1.0.7] - 2026-06-02
 
 ### Fixed

@@ -30,6 +30,12 @@ export function Firewall() {
 
   return (
     <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Firewall</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Zone policies, legacy rules, and syslog-matched firewall events.
+        </p>
+      </header>
       <PageTabs tabs={tabs} active={activeTab} onChange={handleTabChange} />
       {activeTab === "overview" ? <OverviewTab onMatrixSelect={handleMatrixSelect} /> : null}
       {activeTab === "policies" ? <PoliciesTab /> : null}

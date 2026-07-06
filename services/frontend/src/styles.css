@@ -2,6 +2,20 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #609ffa;
+  --color-brand-500: #3186f7;
+  --color-brand-600: #006fff;
+  --color-brand-700: #0059d6;
+  --color-brand-800: #0047ab;
+  --color-brand-900: #003c8f;
+  --color-brand-950: #002a66;
+}
+
 :root {
   color: #172026;
   background: #f7f9fb;

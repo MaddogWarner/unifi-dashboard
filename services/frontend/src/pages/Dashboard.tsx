@@ -3,6 +3,7 @@ import { Activity, RefreshCw, ScrollText, ShieldCheck, Wifi } from "lucide-react
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { Card } from "../components/Card";
 import { StatusCard } from "../components/StatusCard";
 import type { AttentionItem, DashboardStatus } from "../lib/api";
 import { getDashboardAttention } from "../lib/api";
@@ -68,7 +69,7 @@ function statusCards(status: DashboardStatus | undefined) {
     {
       icon: Activity,
       label: "Threats (24 h)",
-      value: status?.threat_events_24h ?? 0,
+      value: status ? status.threat_events_24h : "–",
       tone: status?.threat_events_24h ? "warn" : "neutral"
     }
   ] satisfies Array<{
@@ -105,6 +106,13 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Dashboard</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          What needs your attention across the network.
+        </p>
+      </header>
+
       <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
         {statusCards(attention.data?.status).map((card) => (
           <StatusCard
@@ -117,24 +125,22 @@ export function Dashboard() {
         ))}
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex items-center justify-between gap-3 p-4">
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Needs attention</h2>
-          <span className="text-sm text-slate-500 dark:text-slate-400">{itemCountLabel(items.length)}</span>
-        </div>
-
+      <Card
+        title="Needs attention"
+        action={attention.data ? <span className="text-sm text-slate-500 dark:text-slate-400">{itemCountLabel(items.length)}</span> : null}
+      >
         {attention.isLoading ? (
-          <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-400">Loading…</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Loading…</p>
         ) : attention.error ? (
-          <div className="mx-4 mb-4 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
+          <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
             Dashboard attention feed failed: {attention.error.message}
           </div>
         ) : items.length === 0 ? (
-          <div className="mx-4 mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
             All clear — nothing needs attention.
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="-mx-4 -mb-4 divide-y divide-slate-100 dark:divide-slate-800">
             {items.map((item, index) => (
               <Link
                 key={`${item.category}-${item.title}-${index}`}
@@ -146,7 +152,7 @@ export function Dashboard() {
                     <SeverityChip severity={item.severity} />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium text-slate-950 dark:text-slate-50">{item.title}</p>
+                    <p className="font-medium text-brand-700 dark:text-brand-300">{item.title}</p>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{item.detail}</p>
                   </div>
                 </div>
@@ -159,7 +165,7 @@ export function Dashboard() {
             ))}
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

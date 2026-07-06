@@ -3,10 +3,17 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { ActionBadge } from "../../components/ActionBadge";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
 import type { FirewallPolicy, FirewallRule } from "../../lib/api";
 import { getFirewallPolicies, getFirewallRules } from "../../lib/api";
 
 type HitsSort = "asc" | "desc" | null;
+
+const fieldClass =
+  "mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+const labelClass = "text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
+const tableHeadClass = "bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400";
 
 function normaliseAction(action: string) {
   const value = action.toLowerCase();
@@ -99,12 +106,9 @@ export function PoliciesTab() {
   }
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">
-        {hasPolicies ? "Zone Policies" : "Legacy Firewall Rules"}
-      </h2>
+    <Card title={hasPolicies ? "Zone Policies" : "Legacy Firewall Rules"}>
       {(policies.error || rules.error) && (
-        <div className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
+        <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
           {policies.error ? `Policy sync view failed: ${policies.error.message}` : null}
           {rules.error ? ` Legacy rules view failed: ${rules.error.message}` : null}
         </div>
@@ -115,21 +119,21 @@ export function PoliciesTab() {
         </p>
       )}
       <div className="mt-4 grid gap-3 md:grid-cols-5">
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className={labelClass}>
           Search
           <input
             value={query}
             onChange={(event) => handleQueryChange(event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            className={fieldClass}
             placeholder="Policy name"
           />
         </label>
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className={labelClass}>
           Action
           <select
             value={action}
             onChange={(event) => setAction(event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            className={fieldClass}
           >
             <option value="">All</option>
             <option value="allow">Allow</option>
@@ -139,12 +143,12 @@ export function PoliciesTab() {
         </label>
         {hasPolicies ? (
           <>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label className={labelClass}>
               Source zone
               <select
                 value={src}
                 onChange={(event) => updateUrl({ src: event.target.value })}
-                className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                className={fieldClass}
               >
                 <option value="">All</option>
                 {sourceZones.map((zone) => (
@@ -152,12 +156,12 @@ export function PoliciesTab() {
                 ))}
               </select>
             </label>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <label className={labelClass}>
               Destination zone
               <select
                 value={dst}
                 onChange={(event) => updateUrl({ dst: event.target.value })}
-                className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                className={fieldClass}
               >
                 <option value="">All</option>
                 {destinationZones.map((zone) => (
@@ -168,12 +172,12 @@ export function PoliciesTab() {
           </>
         ) : null}
         {hasPolicies ? (
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className={labelClass}>
             Enabled
             <select
               value={enabled}
               onChange={(event) => setEnabled(event.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              className={fieldClass}
             >
               <option value="">All</option>
               <option value="enabled">Enabled only</option>
@@ -182,13 +186,13 @@ export function PoliciesTab() {
           </label>
         ) : null}
       </div>
-      <button
+      <Button
         type="button"
         onClick={clearFilters}
-        className="mt-3 rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        className="mt-3"
       >
         × Clear filters
-      </button>
+      </Button>
       <div className="mt-4 overflow-x-auto">
         {hasPolicies ? (
           <PolicyTable rows={filteredPolicies} total={policyRows.length} hitsSort={hitsSort} onToggleHits={toggleHitsSort} />
@@ -200,7 +204,7 @@ export function PoliciesTab() {
           </p>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -221,7 +225,7 @@ function PolicyTable({
         Showing {rows.length} of {total} policies
       </p>
       <table className="min-w-full text-left text-sm">
-        <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+        <thead className={tableHeadClass}>
           <tr>
             <th className="px-2 py-2">Name</th>
             <th className="px-2 py-2">Action</th>
@@ -229,9 +233,9 @@ function PolicyTable({
             <th className="px-2 py-2">Protocol</th>
             <th className="px-2 py-2">Schedule</th>
             <th className="px-2 py-2 text-right">
-              <button type="button" onClick={onToggleHits} className="font-semibold hover:text-slate-700 dark:hover:text-slate-200">
+              <Button type="button" variant="quiet" onClick={onToggleHits} className="-my-1 px-1 py-1 font-semibold">
                 Hits{hitsSort ? ` ${hitsSort === "desc" ? "↓" : "↑"}` : ""}
-              </button>
+              </Button>
             </th>
             <th className="px-2 py-2">Enabled</th>
           </tr>
@@ -264,7 +268,7 @@ function LegacyRuleTable({ rows, total }: { rows: FirewallRule[]; total: number 
         Showing {rows.length} of {total} rules
       </p>
       <table className="min-w-full text-left text-sm">
-        <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+        <thead className={tableHeadClass}>
           <tr>
             <th className="px-2 py-2">Ruleset</th>
             <th className="px-2 py-2">Index</th>

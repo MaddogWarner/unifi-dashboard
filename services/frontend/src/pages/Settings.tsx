@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
 import { useTheme } from "../contexts/ThemeContext";
 import {
   changePassword,
@@ -17,6 +19,12 @@ import {
   updateSettings
 } from "../lib/api";
 
+const fieldClass =
+  "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+const compactFieldClass =
+  "w-full max-w-sm rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+const labelClass = "text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
+const tableHeadClass = "bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400";
 
 const RULESET_TO_DEST_ZONE: Record<string, string[]> = {
   WAN_IN: ["Internal", "LAN"],
@@ -198,22 +206,22 @@ export function Settings() {
           <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Settings</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">UniFi connection, monitoring, and enforcement controls.</p>
         </div>
-        <button
-          className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+        <Button
+          className="inline-flex items-center gap-2"
+          variant="primary"
           onClick={() => save.mutate(draft)}
         >
           <Save className="h-4 w-4" />
           Save Settings
-        </button>
+        </Button>
       </header>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">UniFi Connection</h2>
+      <Card title="UniFi Connection">
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Host URL
             <input
-              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={`${fieldClass} font-mono`}
               placeholder="https://192.168.1.1"
               value={draft["unifi.host"]}
               onChange={(event) => setValue("unifi.host", event.target.value)}
@@ -223,26 +231,26 @@ export function Settings() {
             API Key
             <div className="flex gap-2">
               <input
-                className="min-w-0 flex-1 rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={`min-w-0 flex-1 ${fieldClass} font-mono`}
                 type={showKey ? "text" : "password"}
                 placeholder="••••••••••••••••"
                 value={draft["unifi.api_key"]}
                 onChange={(event) => setValue("unifi.api_key", event.target.value)}
               />
-              <button
+              <Button
                 type="button"
-                className="rounded border border-slate-300 px-2 text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+                className="px-2 text-slate-500"
                 onClick={() => setShowKey((prev) => !prev)}
                 title={showKey ? "Hide key" : "Show key"}
               >
                 {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+              </Button>
             </div>
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Site
             <input
-              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={`${fieldClass} font-mono`}
               placeholder="default"
               value={draft["unifi.site"]}
               onChange={(event) => setValue("unifi.site", event.target.value)}
@@ -260,10 +268,9 @@ export function Settings() {
         <p className="mt-3 text-xs text-slate-400">
           API key is stored in the application database. Changes take effect on the next poll cycle.
         </p>
-      </section>
+      </Card>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Proxy</h2>
+      <Card title="Proxy">
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input
@@ -276,26 +283,27 @@ export function Settings() {
           <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Proxy URL
             <input
-              className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={`${fieldClass} font-mono`}
               value={draft["http_proxy.url"]}
               onChange={(event) => setValue("http_proxy.url", event.target.value)}
               placeholder="http://proxy.example.local:8080"
             />
           </label>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">CVE Monitoring</h2>
-          <button
-            className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+      <Card
+        title="CVE Monitoring"
+        action={
+          <Button
+            className="inline-flex items-center gap-2"
             onClick={() => cveRefresh.mutate()}
           >
             <ShieldCheck className="h-4 w-4" />
             Run Now
-          </button>
-        </div>
+          </Button>
+        }
+      >
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input
@@ -308,7 +316,7 @@ export function Settings() {
           <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Poll interval
             <select
-              className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={fieldClass}
               value={draft["cve_monitoring.poll_interval_hours"]}
               onChange={(event) => setValue("cve_monitoring.poll_interval_hours", event.target.value)}
             >
@@ -318,19 +326,20 @@ export function Settings() {
             </select>
           </label>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Threat Feed</h2>
-          <button
-            className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+      <Card
+        title="Threat Feed"
+        action={
+          <Button
+            className="inline-flex items-center gap-2"
             onClick={() => feedRefresh.mutate()}
           >
             <ShieldCheck className="h-4 w-4" />
             Run Now
-          </button>
-        </div>
+          </Button>
+        }
+      >
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input
@@ -343,7 +352,7 @@ export function Settings() {
           <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
             Poll interval
             <select
-              className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={fieldClass}
               value={draft["threat_feed.poll_interval_hours"]}
               onChange={(event) => setValue("threat_feed.poll_interval_hours", event.target.value)}
             >
@@ -356,39 +365,41 @@ export function Settings() {
         </div>
         <div className="mt-4">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Apply mode</span>
-          <div className="mt-2 inline-flex rounded border border-slate-300 p-1 dark:border-slate-600">
+          <div className="mt-2 inline-flex rounded-md border border-slate-300 p-1 dark:border-slate-700">
             {[
               ["preview", "Manual"],
               ["auto", "Auto Push"]
             ].map(([value, label]) => (
-              <button
+              <Button
                 key={value}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${
-                  draft["threat_feed.apply_mode"] === value ? "bg-slate-900 text-white dark:bg-teal-700" : "text-slate-700 dark:text-slate-300"
+                variant="quiet"
+                className={`px-3 py-1.5 ${
+                  draft["threat_feed.apply_mode"] === value ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300" : "text-slate-700 dark:text-slate-300"
                 }`}
                 onClick={() => setValue("threat_feed.apply_mode", value)}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
         <div className="mt-4">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Direction</span>
-          <div className="mt-2 inline-flex rounded border border-slate-300 p-1 dark:border-slate-600">
+          <div className="mt-2 inline-flex rounded-md border border-slate-300 p-1 dark:border-slate-700">
             {[
               ["inbound", "Inbound"],
               ["bidirectional", "Bidirectional"]
             ].map(([value, label]) => (
-              <button
+              <Button
                 key={value}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${
-                  draft["threat_feed.direction_mode"] === value ? "bg-slate-900 text-white dark:bg-teal-700" : "text-slate-700 dark:text-slate-300"
+                variant="quiet"
+                className={`px-3 py-1.5 ${
+                  draft["threat_feed.direction_mode"] === value ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300" : "text-slate-700 dark:text-slate-300"
                 }`}
                 onClick={() => setValue("threat_feed.direction_mode", value)}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -416,42 +427,41 @@ export function Settings() {
             </p>
           )}
         </fieldset>
-      </section>
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="mb-4 text-lg font-semibold text-slate-950 dark:text-slate-50">Appearance</h2>
+      </Card>
+      <Card title="Appearance">
         <div className="flex gap-2">
           {(["light", "dark"] as const).map((nextTheme) => (
-            <button
+            <Button
               key={nextTheme}
               type="button"
               onClick={() => themeMutation.mutate(nextTheme)}
               disabled={theme === nextTheme || themeMutation.isPending}
-              className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
+              variant="quiet"
+              className={`px-4 py-2 ${
                 theme === nextTheme
-                  ? "bg-slate-900 text-white dark:bg-teal-700"
+                  ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                   : "border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
               }`}
             >
               {nextTheme === "light" ? "Light" : "Dark"}
-            </button>
+            </Button>
           ))}
         </div>
-      </section>
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Change Password</h2>
+      </Card>
+      <Card title="Change Password">
         <form onSubmit={handleChangePw} className="mt-4 space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Current password</label>
+            <label className={`mb-1 block ${labelClass}`}>Current password</label>
             <input
               type="password"
               value={cpCurrent}
               onChange={(event) => setCpCurrent(event.target.value)}
               required
-              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={compactFieldClass}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            <label className={`mb-1 block ${labelClass}`}>
               New password <span className="text-slate-400">(min 12 characters)</span>
             </label>
             <input
@@ -459,39 +469,39 @@ export function Settings() {
               value={cpNew}
               onChange={(event) => setCpNew(event.target.value)}
               required
-              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={compactFieldClass}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Confirm new password</label>
+            <label className={`mb-1 block ${labelClass}`}>Confirm new password</label>
             <input
               type="password"
               value={cpConfirm}
               onChange={(event) => setCpConfirm(event.target.value)}
               required
-              className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={compactFieldClass}
             />
           </div>
           {cpError ? <p className="text-xs text-rose-600 dark:text-rose-400">{cpError}</p> : null}
-          <button
+          <Button
             type="submit"
             disabled={changePw.isPending}
-            className="rounded bg-teal-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50"
+            variant="primary"
+            className="px-4 py-1.5"
           >
             {changePw.isPending ? "Saving..." : "Change password"}
-          </button>
+          </Button>
         </form>
-      </section>
+      </Card>
       {isSuperuser ? (
-        <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">User Management</h2>
+        <Card title="User Management">
           <div className="mt-4 mb-6 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-xs font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  <th className="pb-2 pr-4">Email</th>
-                  <th className="pb-2 pr-4">Role</th>
-                  <th className="pb-2">Actions</th>
+              <thead className={tableHeadClass}>
+                <tr className="text-left">
+                  <th className="p-2 pr-4">Email</th>
+                  <th className="p-2 pr-4">Role</th>
+                  <th className="p-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -502,7 +512,7 @@ export function Settings() {
                       {user.is_superuser ? "Admin" : "User"}
                     </td>
                     <td className="py-2">
-                      <button
+                      <Button
                         type="button"
                         disabled={user.id === meQuery.data?.id || deleteUserMut.isPending}
                         onClick={() => {
@@ -510,10 +520,10 @@ export function Settings() {
                             deleteUserMut.mutate(user.id);
                           }
                         }}
-                        className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950"
+                        className="border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -532,17 +542,17 @@ export function Settings() {
             className="space-y-3"
           >
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Email</label>
+              <label className={`mb-1 block ${labelClass}`}>Email</label>
               <input
                 type="email"
                 value={nuEmail}
                 onChange={(event) => setNuEmail(event.target.value)}
                 required
-                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={compactFieldClass}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+              <label className={`mb-1 block ${labelClass}`}>
                 Password <span className="text-slate-400">(min 12 characters)</span>
               </label>
               <input
@@ -550,19 +560,20 @@ export function Settings() {
                 value={nuPassword}
                 onChange={(event) => setNuPassword(event.target.value)}
                 required
-                className="w-full max-w-sm rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={compactFieldClass}
               />
             </div>
             {nuError ? <p className="text-xs text-rose-600 dark:text-rose-400">{nuError}</p> : null}
-            <button
+            <Button
               type="submit"
               disabled={createUserMut.isPending}
-              className="rounded bg-teal-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-teal-600 disabled:opacity-50"
+              variant="primary"
+              className="px-4 py-1.5"
             >
               {createUserMut.isPending ? "Creating..." : "Create user"}
-            </button>
+            </Button>
           </form>
-        </section>
+        </Card>
       ) : null}
       {save.error ? <p className="text-sm text-rose-700 dark:text-rose-400">{String(save.error)}</p> : null}
       {refreshError ? <p className="text-sm text-rose-700 dark:text-rose-400">{refreshError}</p> : null}

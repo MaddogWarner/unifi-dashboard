@@ -1,9 +1,15 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { StatusCard } from "../components/StatusCard";
 import { acknowledgeCVE, getCVEAlerts, getCVEDevices } from "../lib/api";
+
+const fieldClass =
+  "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+const tableHeadClass = "bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400";
 
 export function CVEAlerts() {
   const queryClient = useQueryClient();
@@ -41,11 +47,10 @@ export function CVEAlerts() {
         <StatusCard icon={AlertTriangle} label="High CVEs" value={counts.high} tone={counts.high ? "warn" : "good"} />
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Device Inventory</h2>
-        <div className="mt-4 overflow-x-auto">
+      <Card title="Device Inventory">
+        <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="p-2">Device</th>
                 <th>Model</th>
@@ -73,14 +78,14 @@ export function CVEAlerts() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Alerts</h2>
+      <Card
+        title="Alerts"
+        action={
           <div className="flex flex-wrap items-center gap-3">
             <select
-              className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className={fieldClass}
               value={severity}
               onChange={(event) => setSeverity(event.target.value)}
             >
@@ -97,10 +102,11 @@ export function CVEAlerts() {
               Hide acknowledged
             </label>
           </div>
-        </div>
-        <div className="mt-4 overflow-x-auto">
+        }
+      >
+        <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="p-2">CVE</th>
                 <th>Severity</th>
@@ -117,7 +123,7 @@ export function CVEAlerts() {
                 <tr key={alert.id} className="border-t border-slate-100 align-top dark:border-slate-800">
                   <td className="p-2 font-mono text-xs">
                     <a
-                      className="text-teal-700 hover:underline"
+                      className="text-brand-700 hover:underline dark:text-brand-300"
                       href={`https://nvd.nist.gov/vuln/detail/${alert.cve_id}`}
                       target="_blank"
                       rel="noreferrer"
@@ -135,12 +141,12 @@ export function CVEAlerts() {
                     {alert.acknowledged_at ? (
                       <span className="text-slate-400">Acknowledged</span>
                     ) : (
-                      <button
-                        className="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                      <Button
+                        className="py-1.5"
                         onClick={() => acknowledge.mutate(alert.id)}
                       >
                         Acknowledge
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -148,7 +154,7 @@ export function CVEAlerts() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

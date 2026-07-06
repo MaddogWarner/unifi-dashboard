@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, CircleAlert, CircleX } from "lucide-react";
+import { Card } from "../components/Card";
 import { getAssessment } from "../lib/api";
 
 export function Assessment() {
@@ -12,15 +13,20 @@ export function Assessment() {
       .join(" ");
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Security Assessment</h2>
-        <p className="mt-2 text-4xl font-semibold text-teal-800">{assessment.data?.score ?? "-"}%</p>
-      </section>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Security Assessment</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Scored checks, evidence, and remediation guidance.
+        </p>
+      </header>
+      <Card title="Current score">
+        <p className="text-4xl font-semibold text-brand-700 dark:text-brand-300">{assessment.data?.score ?? "-"}%</p>
+      </Card>
       {(assessment.data?.checks ?? []).map((check) => {
         const Icon = icon[check.status];
         return (
-          <section key={check.check_id} className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <Card key={check.check_id}>
             <div className="flex items-start gap-3">
               <Icon className={`mt-1 h-5 w-5 ${check.status === "fail" ? "text-rose-700" : check.status === "warn" ? "text-amber-700" : "text-emerald-700"}`} />
               <div>
@@ -30,7 +36,7 @@ export function Assessment() {
                 {(check.evidence?.length ?? 0) > 0 ? (
                   <div className="mt-4 overflow-x-auto">
                     <table className="min-w-full text-left text-xs">
-                      <thead className="uppercase text-slate-500 dark:text-slate-400">
+                      <thead className="bg-slate-50 uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
                         <tr>
                           <th className="p-2">Evidence</th>
                           <th>Host</th>
@@ -57,7 +63,7 @@ export function Assessment() {
                 ) : null}
               </div>
             </div>
-          </section>
+          </Card>
         );
       })}
     </div>

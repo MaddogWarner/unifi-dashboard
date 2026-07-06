@@ -1,23 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
+import { Card } from "../components/Card";
 import { getNetworks } from "../lib/api";
 
 export function VLANs() {
   const networks = useQuery({ queryKey: ["networks"], queryFn: getNetworks });
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Networks and VLANs</h2>
-      <div className="mt-4 overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
-          <thead className="text-xs uppercase text-slate-500 dark:text-slate-400"><tr><th className="p-2">Name</th><th>VLAN</th><th>Zone</th><th>Subnet</th><th>Purpose</th><th>Enabled</th></tr></thead>
-          <tbody>
-            {(networks.data ?? []).map((network) => (
-              <tr key={network.id} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="p-2 font-medium">{network.name}</td><td>{network.vlan_id ?? "Untagged"}</td><td>{network.zone ?? "Unassigned"}</td><td>{network.subnet ?? "-"}</td><td>{network.purpose ?? "-"}</td><td>{network.enabled ? "Yes" : "No"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Networks and VLANs</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Network segments, zones, subnets, and enabled state.
+        </p>
+      </header>
+      <Card title="Networks and VLANs">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400"><tr><th className="p-2">Name</th><th>VLAN</th><th>Zone</th><th>Subnet</th><th>Purpose</th><th>Enabled</th></tr></thead>
+            <tbody>
+              {(networks.data ?? []).map((network) => (
+                <tr key={network.id} className="border-t border-slate-100 dark:border-slate-800">
+                  <td className="p-2 font-medium">{network.name}</td><td>{network.vlan_id ?? "Untagged"}</td><td>{network.zone ?? "Unassigned"}</td><td>{network.subnet ?? "-"}</td><td>{network.purpose ?? "-"}</td><td>{network.enabled ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }

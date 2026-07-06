@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Card } from "../components/Card";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { getIdsStatus, getThreats } from "../lib/api";
 
@@ -7,19 +8,23 @@ export function Threats() {
   const ids = useQuery({ queryKey: ["ids-status"], queryFn: getIdsStatus });
   return (
     <div className="space-y-6">
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">IDS/IPS Status</h2>
-        <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+      <header>
+        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Threats</h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          IDS/IPS posture and recent threat events.
+        </p>
+      </header>
+      <Card title="IDS/IPS Status">
+        <div className="grid gap-3 text-sm md:grid-cols-3">
           <div>Enabled: <strong>{ids.data?.enabled ? "Yes" : "No"}</strong></div>
           <div>Mode: <strong>{ids.data?.mode ?? "Unknown"}</strong></div>
           <div>Sensitivity: <strong>{ids.data?.sensitivity ?? "Unknown"}</strong></div>
         </div>
-      </section>
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Threat Events</h2>
-        <div className="mt-4 overflow-x-auto">
+      </Card>
+      <Card title="Threat Events">
+        <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400"><tr><th className="p-2">Time</th><th>Severity</th><th>Signature</th><th>Source</th><th>Destination</th><th>Action</th></tr></thead>
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400"><tr><th className="p-2">Time</th><th>Severity</th><th>Signature</th><th>Source</th><th>Destination</th><th>Action</th></tr></thead>
             <tbody>
               {(threats.data ?? []).map((event) => (
                 <tr key={event.id} className="border-t border-slate-100 dark:border-slate-800">
@@ -29,7 +34,7 @@ export function Threats() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

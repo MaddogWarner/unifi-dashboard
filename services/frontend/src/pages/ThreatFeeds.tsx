@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, ShieldBan, Trash2, X } from "lucide-react";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
 import {
   addThreatFeedSource,
   approveThreatFeedRule,
@@ -14,6 +16,10 @@ import {
   rejectThreatFeedRule,
   updateThreatFeedSource
 } from "../lib/api";
+
+const fieldClass =
+  "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+const tableHeadClass = "bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400";
 
 export function ThreatFeeds() {
   const queryClient = useQueryClient();
@@ -120,28 +126,30 @@ export function ThreatFeeds() {
           <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Threat Feeds</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">External blocklist ingestion and UniFi enforcement state.</p>
         </div>
-        <button
-          className="inline-flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+        <Button
+          className="inline-flex items-center gap-2"
+          variant="primary"
           onClick={() => refresh.mutate()}
         >
           <ShieldBan className="h-4 w-4" />
           Refresh
-        </button>
+        </Button>
       </header>
 
-      <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900 md:grid-cols-6">
-        <span className={status.data?.enabled ? "font-semibold text-emerald-700" : "font-semibold text-slate-500"}>
-          {status.data?.enabled ? "Active" : "Disabled"}
-        </span>
-        <span>Mode: {status.data?.apply_mode === "auto" ? "Auto Push" : "Manual"}</span>
-        <span>Direction: {status.data?.direction_mode === "bidirectional" ? "Bidirectional" : "Inbound"}</span>
-        <span>Last updated: {formatDate(status.data?.last_updated)}</span>
-        <span>{(status.data?.total_entries ?? 0).toLocaleString()} IPs</span>
-        <span>{status.data?.pending_count ?? 0} pending approvals</span>
-      </section>
+      <Card>
+        <div className="grid gap-3 text-sm md:grid-cols-6">
+          <span className={status.data?.enabled ? "font-semibold text-emerald-700" : "font-semibold text-slate-500"}>
+            {status.data?.enabled ? "Active" : "Disabled"}
+          </span>
+          <span>Mode: {status.data?.apply_mode === "auto" ? "Auto Push" : "Manual"}</span>
+          <span>Direction: {status.data?.direction_mode === "bidirectional" ? "Bidirectional" : "Inbound"}</span>
+          <span>Last updated: {formatDate(status.data?.last_updated)}</span>
+          <span>{(status.data?.total_entries ?? 0).toLocaleString()} IPs</span>
+          <span>{status.data?.pending_count ?? 0} pending approvals</span>
+        </div>
+      </Card>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Pending Rule Changes</h2>
+      <Card title="Pending Rule Changes">
         {actionError ? (
           <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">{actionError}</p>
         ) : null}
@@ -152,7 +160,7 @@ export function ThreatFeeds() {
         ) : null}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="p-2">Action</th>
                 <th>Ruleset</th>
@@ -182,22 +190,22 @@ export function ThreatFeeds() {
                   <td className="flex gap-2 py-2">
                     {rule.status === "pending" ? (
                       <>
-                        <button
-                          className="inline-flex items-center gap-1 rounded border border-emerald-300 px-2 py-1 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                        <Button
+                          className="inline-flex items-center gap-1 border-emerald-300 px-2 py-1 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950"
                           disabled={approve.isPending || reject.isPending}
                           onClick={() => approve.mutate(rule.id)}
                         >
                           <Check className="h-4 w-4" />
                           {approve.isPending ? "Approving…" : "Approve"}
-                        </button>
-                        <button
-                          className="inline-flex items-center gap-1 rounded border border-rose-300 px-2 py-1 text-sm text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                        </Button>
+                        <Button
+                          className="inline-flex items-center gap-1 border-rose-300 px-2 py-1 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950"
                           disabled={approve.isPending || reject.isPending}
                           onClick={() => reject.mutate(rule.id)}
                         >
                           <X className="h-4 w-4" />
                           {reject.isPending ? "Rejecting…" : "Reject"}
-                        </button>
+                        </Button>
                       </>
                     ) : null}
                   </td>
@@ -211,13 +219,12 @@ export function ThreatFeeds() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Feed Sources</h2>
-        <div className="mt-4 overflow-x-auto">
+      <Card title="Feed Sources">
+        <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="p-2">Name</th>
                 <th>URL</th>
@@ -251,13 +258,14 @@ export function ThreatFeeds() {
                   <td>{feed.last_entry_count.toLocaleString()}</td>
                   <td>{feed.last_error ? <span className="text-rose-700">{feed.last_error}</span> : "OK"}</td>
                   <td>
-                    <button
-                      className="rounded p-1 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    <Button
+                      variant="quiet"
+                      className="p-1 text-slate-600 dark:text-slate-400"
                       title="Remove feed"
                       onClick={() => removeFeed.mutate(feed.id)}
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -265,84 +273,84 @@ export function ThreatFeeds() {
           </table>
         </div>
         <div className="mt-4 space-y-3">
-          <div className="inline-flex rounded border border-slate-300 p-1 dark:border-slate-600">
+          <div className="inline-flex rounded-md border border-slate-300 p-1 dark:border-slate-700">
             {(["url", "misp"] as const).map((sourceType) => (
-              <button
+              <Button
                 key={sourceType}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${
+                variant="quiet"
+                className={`px-3 py-1.5 ${
                   newSourceType === sourceType
-                    ? "bg-slate-900 text-white dark:bg-teal-700"
+                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                     : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
                 onClick={() => setNewSourceType(sourceType)}
               >
                 {sourceType === "url" ? "URL Feed" : "MISP Server"}
-              </button>
+              </Button>
             ))}
           </div>
 
           {newSourceType === "url" ? (
             <div className="grid gap-2 md:grid-cols-[1fr_2fr_auto_auto_auto]">
               <input
-                className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={fieldClass}
                 placeholder="Name"
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
               />
               <input
-                className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={`${fieldClass} font-mono`}
                 placeholder="https://example.com/feed.netset"
                 value={newUrl}
                 onChange={(event) => setNewUrl(event.target.value)}
               />
-              <button
-                className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              <Button
                 onClick={() => {
                   setNewName("FireHOL Level 1");
                   setNewUrl("https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset");
                 }}
               >
                 FireHOL
-              </button>
-              <button
-                className="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              </Button>
+              <Button
                 onClick={() => {
                   setNewName("Spamhaus DROP");
                   setNewUrl("https://www.spamhaus.org/drop/drop_v4.json");
                 }}
               >
                 Spamhaus
-              </button>
-              <button
-                className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+              </Button>
+              <Button
+                className="inline-flex items-center justify-center gap-2"
+                variant="primary"
                 onClick={() => addFeed.mutate()}
               >
                 <Plus className="h-4 w-4" />
                 Add
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="grid gap-2 md:grid-cols-[1fr_2fr_2fr_auto_auto]">
               <input
-                className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={fieldClass}
                 placeholder="Name"
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
               />
               <input
-                className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={`${fieldClass} font-mono`}
                 placeholder="https://misp.example.com"
                 value={newUrl}
                 onChange={(event) => setNewUrl(event.target.value)}
               />
               <input
-                className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className={`${fieldClass} font-mono`}
                 placeholder="API key"
                 type="password"
                 value={newApiKey}
                 onChange={(event) => setNewApiKey(event.target.value)}
               />
-              <label className="flex items-center justify-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-300">
+              <label className="flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:text-slate-300">
                 <input
                   type="checkbox"
                   checked={newMispVerifySsl}
@@ -350,31 +358,33 @@ export function ThreatFeeds() {
                 />
                 Verify SSL
               </label>
-              <button
-                className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+              <Button
+                className="inline-flex items-center justify-center gap-2"
+                variant="primary"
                 onClick={() => addFeed.mutate()}
               >
                 <Plus className="h-4 w-4" />
                 Add
-              </button>
+              </Button>
             </div>
           )}
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Blocked Entries</h2>
+      <Card
+        title="Blocked Entries"
+        action={
           <input
-            className="rounded border border-slate-300 px-3 py-2 font-mono text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            className={`${fieldClass} font-mono`}
             placeholder="Search CIDR"
             value={cidrSearch}
             onChange={(event) => setCidrSearch(event.target.value)}
           />
-        </div>
-        <div className="mt-4 overflow-x-auto">
+        }
+      >
+        <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+            <thead className={tableHeadClass}>
               <tr>
                 <th className="p-2">CIDR</th>
                 <th>Feed Source</th>
@@ -392,7 +402,7 @@ export function ThreatFeeds() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

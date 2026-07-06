@@ -18,7 +18,7 @@ function actionTone(action: string | null) {
 
 export function ActionBadge({ action }: Props) {
   return (
-    <span className={`inline-flex rounded border px-2 py-0.5 text-xs font-semibold uppercase ${actionTone(action)}`}>
+    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium uppercase ${actionTone(action)}`}>
       {action ?? "Unknown"}
     </span>
   );

@@ -75,7 +75,7 @@ function ActionToast({ toast, onDismiss }: ActionToastProps) {
   const Icon = isSuccess ? CheckCircle2 : CircleAlert;
   const toneClass = isSuccess
     ? "border-emerald-200 text-slate-800 dark:border-emerald-800 dark:text-slate-200"
-    : "border-rose-200 text-rose-800 dark:border-rose-800 dark:text-rose-200";
+    : "border-rose-200 text-slate-800 dark:border-rose-800 dark:text-slate-200";
   const iconClass = isSuccess ? "text-emerald-700" : "text-rose-700";
 
   return createPortal(
@@ -86,7 +86,7 @@ function ActionToast({ toast, onDismiss }: ActionToastProps) {
       data-tone={toast.tone}
     >
       <div
-        className={`pointer-events-auto flex items-start gap-3 rounded-md border bg-white px-4 py-3 text-sm shadow-lg dark:bg-slate-900 ${toneClass}`}
+        className={`pointer-events-auto flex items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm shadow-lg dark:bg-slate-900 ${toneClass}`}
       >
         <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${iconClass}`} />
         <span className="font-medium">{toast.message}</span>

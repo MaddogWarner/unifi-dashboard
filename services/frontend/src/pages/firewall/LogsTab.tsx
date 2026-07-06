@@ -3,10 +3,15 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { ActionBadge } from "../../components/ActionBadge";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
 import type { FirewallLog, FirewallLogParams } from "../../lib/api";
 import { getFirewallLogs } from "../../lib/api";
 
 const pageSize = 50;
+const fieldClass =
+  "mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+const labelClass = "text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400";
 
 type DraftFilters = {
   src_ip: string;
@@ -95,47 +100,46 @@ export function LogsTab() {
   }
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Firewall Logs</h2>
+    <Card title="Firewall Logs">
       {logs.error && (
-        <div className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
+        <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
           Firewall logs view failed: {logs.error.message}
         </div>
       )}
       <form className="mt-4 grid gap-3 md:grid-cols-6" onSubmit={handleSubmit}>
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className={labelClass}>
           Source IP
           <input
             value={draft.src_ip}
             onChange={(event) => updateDraft("src_ip", event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            className={fieldClass}
             placeholder="192.168.1.10"
           />
         </label>
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className={labelClass}>
           Destination IP
           <input
             value={draft.dst_ip}
             onChange={(event) => updateDraft("dst_ip", event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            className={fieldClass}
             placeholder="192.168.1.1"
           />
         </label>
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className={labelClass}>
           Rule
           <input
             value={draft.rule_name}
             onChange={(event) => updateDraft("rule_name", event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            className={fieldClass}
             placeholder="Rule name"
           />
         </label>
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className={labelClass}>
           Action
           <select
             value={draft.action}
             onChange={(event) => updateDraft("action", event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            className={fieldClass}
           >
             <option value="">All</option>
             <option value="drop">Blocked</option>
@@ -143,12 +147,12 @@ export function LogsTab() {
             <option value="reject">Rejected</option>
           </select>
         </label>
-        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label className={labelClass}>
           Time range
           <select
             value={draft.range}
             onChange={(event) => updateDraft("range", event.target.value)}
-            className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            className={fieldClass}
           >
             <option value="1h">Last hour</option>
             <option value="24h">24 h</option>
@@ -157,18 +161,19 @@ export function LogsTab() {
           </select>
         </label>
         <div className="flex items-end">
-          <button
+          <Button
             type="submit"
-            className="w-full rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600"
+            variant="primary"
+            className="w-full"
           >
             Apply
-          </button>
+          </Button>
         </div>
       </form>
       <div className="mt-4 overflow-x-auto">
         {rows.length > 0 ? (
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500 dark:text-slate-400">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400">
               <tr>
                 <th className="px-2 py-2">Time</th>
                 <th className="px-2 py-2">Rule</th>
@@ -197,25 +202,25 @@ export function LogsTab() {
         )}
       </div>
       <div className="mt-4 flex items-center gap-3 text-sm">
-        <button
+        <Button
           type="button"
           onClick={() => setPage((current) => Math.max(0, current - 1))}
           disabled={page === 0}
-          className="rounded border border-slate-300 px-3 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700"
+          className="min-h-11"
         >
           Prev
-        </button>
+        </Button>
         <span className="text-slate-600 dark:text-slate-400">Page {page + 1}</span>
-        <button
+        <Button
           type="button"
           onClick={() => setPage((current) => current + 1)}
           disabled={rows.length < pageSize}
-          className="rounded border border-slate-300 px-3 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700"
+          className="min-h-11"
         >
           Next
-        </button>
+        </Button>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -239,16 +244,17 @@ function LogRow({
         <td className="whitespace-nowrap px-2 py-2">{formatTimestamp(log.timestamp)}</td>
         <td className="px-2 py-2">
           {log.matched_policy_id && log.rule_name ? (
-            <button
+            <Button
               type="button"
+              variant="quiet"
               onClick={(event) => {
                 event.stopPropagation();
                 onRuleClick();
               }}
-              className="font-medium text-teal-700 hover:underline dark:text-teal-300"
+              className="-mx-1 px-1 py-1 font-medium text-brand-700 hover:underline dark:text-brand-300"
             >
               {log.rule_name}
-            </button>
+            </Button>
           ) : log.rule_name ? (
             <span>
               {log.rule_name} <span className="text-slate-500">· unmatched</span>

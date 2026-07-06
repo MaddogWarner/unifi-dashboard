@@ -23,12 +23,12 @@ const valueTones = {
 
 export function StatusCard({ icon: Icon, label, value, tone = "neutral" }: Props) {
   return (
-    <div className={`rounded-md border p-4 shadow-sm ${tones[tone]}`}>
+    <div className={`min-w-0 rounded-md border p-4 shadow-sm ${tones[tone]}`}>
       <div className="flex items-center gap-3">
         <Icon aria-hidden className="h-5 w-5 shrink-0" />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
-          <p className={`mt-1 text-2xl font-semibold ${valueTones[tone]}`}>{value}</p>
+          <p className="break-words text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
+          <p className={`mt-1 break-words text-2xl font-semibold leading-tight ${valueTones[tone]}`}>{value}</p>
         </div>
       </div>
     </div>

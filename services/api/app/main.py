@@ -35,6 +35,7 @@ from app.models.threatfeed import ThreatFeedSource
 from app.models.user import User
 from app.routers import (
     assessment,
+    dashboard,
     drift,
     health,
     networks,
@@ -501,6 +502,9 @@ app.include_router(
 )
 app.include_router(
     assessment.router, prefix="/api/v1/assessment", tags=["assessment"], dependencies=protected
+)
+app.include_router(
+    dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"], dependencies=protected
 )
 app.include_router(drift.router, prefix="/api/v1/drift", tags=["drift"], dependencies=protected)
 app.include_router(scan_router.router, prefix="/api/v1/scan", tags=["scan"], dependencies=protected)

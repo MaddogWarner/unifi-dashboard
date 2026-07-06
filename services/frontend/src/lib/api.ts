@@ -209,6 +209,29 @@ export type AssessmentReport = {
   }>;
 };
 
+export type AttentionItem = {
+  severity: "critical" | "warning" | "info";
+  category: "connectivity" | "assessment" | "conflict" | "cve" | "syslog" | "threat";
+  title: string;
+  detail: string;
+  link: string;
+  timestamp: string | null;
+};
+
+export type DashboardStatus = {
+  unifi_reachable: boolean;
+  assessment_score: number | null;
+  last_policy_sync: string | null;
+  last_syslog_event: string | null;
+  threat_events_24h: number;
+};
+
+export type DashboardAttention = {
+  generated_at: string;
+  status: DashboardStatus;
+  items: AttentionItem[];
+};
+
 export type Snapshot = {
   id: number;
   snapshot_type: string;
@@ -365,6 +388,7 @@ export type UnifiZone = { id: string | null; name: string };
 export const getNetworks = () => get<Network[]>("/networks/");
 export const getZones = () => get<UnifiZone[]>("/networks/zones");
 export const getAssessment = () => get<AssessmentReport>("/assessment/");
+export const getDashboardAttention = () => get<DashboardAttention>("/dashboard/attention");
 export const getDriftSnapshots = () => get<Snapshot[]>("/drift/snapshots");
 export const getDriftDiff = (a: number, b: number) => get<DriftDiff>(`/drift/diff/${a}/${b}`);
 export const triggerScan = async (body: ScanRequest): Promise<{ scan_id: number }> => {

@@ -301,6 +301,7 @@ export type ThreatFeedSource = {
   url: string;
   source_type: string;
   enabled: boolean;
+  misp_verify_ssl?: boolean;
   last_polled_at: string | null;
   last_entry_count: number;
   last_error: string | null;
@@ -311,6 +312,14 @@ export type ThreatFeedCreatePayload = {
   name: string;
   url: string;
   source_type?: string;
+  api_key?: string;
+  misp_verify_ssl?: boolean;
+};
+
+export type ThreatFeedUpdatePayload = {
+  name?: string;
+  url?: string;
+  enabled?: boolean;
   api_key?: string;
   misp_verify_ssl?: boolean;
 };
@@ -417,7 +426,7 @@ export const refreshCVE = () => post<{ ok: boolean; message: string }>("/cve/ref
 export const getThreatFeedSources = () => get<ThreatFeedSource[]>("/threatfeed/feeds");
 export const addThreatFeedSource = (payload: ThreatFeedCreatePayload) =>
   post<ThreatFeedSource>("/threatfeed/feeds", payload);
-export const updateThreatFeedSource = (id: number, data: Partial<ThreatFeedSource>) =>
+export const updateThreatFeedSource = (id: number, data: ThreatFeedUpdatePayload) =>
   put<ThreatFeedSource>(`/threatfeed/feeds/${id}`, data);
 export const deleteThreatFeedSource = (id: number) => del<void>(`/threatfeed/feeds/${id}`);
 export const getThreatFeedStatus = () => get<ThreatFeedStatus>("/threatfeed/status");

@@ -74,6 +74,7 @@ SETTING_DEFAULTS = {
     "threat_feed.zones": '["WAN_IN", "WAN_LOCAL"]',
     "threat_feed.apply_mode": "preview",
     "threat_feed.direction_mode": "inbound",
+    "threat_feed.rule_action": "drop",
     "http_proxy.enabled": "false",
     "http_proxy.url": "",
 }

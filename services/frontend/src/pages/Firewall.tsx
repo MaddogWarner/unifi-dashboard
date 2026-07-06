@@ -2,13 +2,15 @@ import { useSearchParams } from "react-router-dom";
 
 import { PageTabs } from "../components/PageTabs";
 import { LogsTab } from "./firewall/LogsTab";
+import { NetworksTab } from "./firewall/NetworksTab";
 import { OverviewTab } from "./firewall/OverviewTab";
 import { PoliciesTab } from "./firewall/PoliciesTab";
 
 const tabs = [
   { id: "overview", label: "Overview" },
   { id: "policies", label: "Policies" },
-  { id: "logs", label: "Logs" }
+  { id: "logs", label: "Logs" },
+  { id: "networks", label: "Networks" }
 ];
 
 const validTabs = new Set(tabs.map((tab) => tab.id));
@@ -40,6 +42,7 @@ export function Firewall() {
       {activeTab === "overview" ? <OverviewTab onMatrixSelect={handleMatrixSelect} /> : null}
       {activeTab === "policies" ? <PoliciesTab /> : null}
       {activeTab === "logs" ? <LogsTab /> : null}
+      {activeTab === "networks" ? <NetworksTab /> : null}
     </div>
   );
 }

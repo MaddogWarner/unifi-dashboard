@@ -1,17 +1,17 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
-import { Button } from "../components/Button";
-import { Card } from "../components/Card";
-import { SeverityBadge } from "../components/SeverityBadge";
-import { StatusCard } from "../components/StatusCard";
-import { acknowledgeCVE, getCVEAlerts, getCVEDevices } from "../lib/api";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
+import { SeverityBadge } from "../../components/SeverityBadge";
+import { StatusCard } from "../../components/StatusCard";
+import { acknowledgeCVE, getCVEAlerts, getCVEDevices } from "../../lib/api";
 
 const fieldClass =
   "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
 const tableHeadClass = "bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400";
 
-export function CVEAlerts() {
+export function CveTab() {
   const queryClient = useQueryClient();
   const [severity, setSeverity] = useState("");
   const [hideAcknowledged, setHideAcknowledged] = useState(true);
@@ -38,10 +38,6 @@ export function CVEAlerts() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">CVE Alerts</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Firmware exposure view for managed UniFi devices.</p>
-      </header>
       <section className="grid gap-4 md:grid-cols-2">
         <StatusCard icon={ShieldAlert} label="Critical CVEs" value={counts.critical} tone={counts.critical ? "bad" : "good"} />
         <StatusCard icon={AlertTriangle} label="High CVEs" value={counts.high} tone={counts.high ? "warn" : "good"} />

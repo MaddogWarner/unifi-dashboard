@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, ShieldBan, Trash2, X } from "lucide-react";
-import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
-import { Button } from "../components/Button";
-import { Card } from "../components/Card";
+import { clearActionToast, showErrorToast, showSuccessToast } from "../../components/ActionToast";
+import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
 import {
   addThreatFeedSource,
   approveThreatFeedRule,
@@ -15,13 +15,14 @@ import {
   refreshThreatFeed,
   rejectThreatFeedRule,
   updateThreatFeedSource
-} from "../lib/api";
+} from "../../lib/api";
+import type { ThreatFeedSource, ThreatFeedUpdatePayload } from "../../lib/api";
 
 const fieldClass =
   "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
 const tableHeadClass = "bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400";
 
-export function ThreatFeeds() {
+export function FeedsTab() {
   const queryClient = useQueryClient();
   const [cidrSearch, setCidrSearch] = useState("");
   const [newName, setNewName] = useState("");
@@ -30,6 +31,10 @@ export function ThreatFeeds() {
   const [newApiKey, setNewApiKey] = useState("");
   const [newMispVerifySsl, setNewMispVerifySsl] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [editingFeedId, setEditingFeedId] = useState<number | null>(null);
+  const [editApiKey, setEditApiKey] = useState("");
+  const [editVerifySsl, setEditVerifySsl] = useState(false);
+  const [credentialError, setCredentialError] = useState<string | null>(null);
   const status = useQuery({
     queryKey: ["threatfeed-status"],
     queryFn: getThreatFeedStatus,
@@ -73,6 +78,17 @@ export function ThreatFeeds() {
   const updateFeed = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => updateThreatFeedSource(id, { enabled }),
     onSuccess: invalidate
+  });
+  const updateCredentials = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: ThreatFeedUpdatePayload }) =>
+      updateThreatFeedSource(id, payload),
+    onSuccess: () => {
+      setEditingFeedId(null);
+      setEditApiKey("");
+      setCredentialError(null);
+      invalidate();
+    },
+    onError: (err) => setCredentialError(errorMessage(err))
   });
   const removeFeed = useMutation({ mutationFn: deleteThreatFeedSource, onSuccess: invalidate });
   const onActionError = (err: unknown) => {
@@ -119,13 +135,36 @@ export function ThreatFeeds() {
     onError: onActionError
   });
 
+  function openCredentialEdit(feed: ThreatFeedSource) {
+    setEditingFeedId(feed.id);
+    setEditApiKey("");
+    setEditVerifySsl(Boolean(feed.misp_verify_ssl));
+    setCredentialError(null);
+  }
+
+  function closeCredentialEdit() {
+    setEditingFeedId(null);
+    setEditApiKey("");
+    setCredentialError(null);
+  }
+
+  function saveCredentials(feed: ThreatFeedSource) {
+    const payload: ThreatFeedUpdatePayload = {};
+    const trimmedKey = editApiKey.trim();
+    if (trimmedKey) payload.api_key = trimmedKey;
+    if (editVerifySsl !== Boolean(feed.misp_verify_ssl)) {
+      payload.misp_verify_ssl = editVerifySsl;
+    }
+    if (Object.keys(payload).length === 0) {
+      closeCredentialEdit();
+      return;
+    }
+    updateCredentials.mutate({ id: feed.id, payload });
+  }
+
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Threat Feeds</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">External blocklist ingestion and UniFi enforcement state.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <Button
           className="inline-flex items-center gap-2"
           variant="primary"
@@ -134,7 +173,7 @@ export function ThreatFeeds() {
           <ShieldBan className="h-4 w-4" />
           Refresh
         </Button>
-      </header>
+      </div>
 
       <Card>
         <div className="grid gap-3 text-sm md:grid-cols-6">
@@ -237,37 +276,88 @@ export function ThreatFeeds() {
             </thead>
             <tbody>
               {(feeds.data ?? []).map((feed) => (
-                <tr key={feed.id} className="border-t border-slate-100 align-top dark:border-slate-800">
-                  <td className="p-2 font-medium">
-                    {feed.name}
-                    {feed.source_type === "misp" ? (
-                      <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900 dark:text-violet-200">
-                        MISP
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="max-w-sm truncate font-mono text-xs">{feed.url}</td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={feed.enabled}
-                      onChange={() => updateFeed.mutate({ id: feed.id, enabled: !feed.enabled })}
-                    />
-                  </td>
-                  <td>{formatDate(feed.last_polled_at)}</td>
-                  <td>{feed.last_entry_count.toLocaleString()}</td>
-                  <td>{feed.last_error ? <span className="text-rose-700">{feed.last_error}</span> : "OK"}</td>
-                  <td>
-                    <Button
-                      variant="quiet"
-                      className="p-1 text-slate-600 dark:text-slate-400"
-                      title="Remove feed"
-                      onClick={() => removeFeed.mutate(feed.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
+                <Fragment key={feed.id}>
+                  <tr className="border-t border-slate-100 align-top dark:border-slate-800">
+                    <td className="p-2 font-medium">
+                      {feed.name}
+                      {feed.source_type === "misp" ? (
+                        <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900 dark:text-violet-200">
+                          MISP
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="max-w-sm truncate font-mono text-xs">{feed.url}</td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={feed.enabled}
+                        onChange={() => updateFeed.mutate({ id: feed.id, enabled: !feed.enabled })}
+                      />
+                    </td>
+                    <td>{formatDate(feed.last_polled_at)}</td>
+                    <td>{feed.last_entry_count.toLocaleString()}</td>
+                    <td>{feed.last_error ? <span className="text-rose-700">{feed.last_error}</span> : "OK"}</td>
+                    <td>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {feed.source_type === "misp" ? (
+                          <Button
+                            variant="quiet"
+                            className="px-2 py-1 text-xs text-slate-600 dark:text-slate-400"
+                            onClick={() => openCredentialEdit(feed)}
+                          >
+                            Edit credentials
+                          </Button>
+                        ) : null}
+                        <Button
+                          variant="quiet"
+                          className="p-1 text-slate-600 dark:text-slate-400"
+                          title="Remove feed"
+                          onClick={() => removeFeed.mutate(feed.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingFeedId === feed.id ? (
+                    <tr className="border-t border-slate-100 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/40">
+                      <td className="p-3" colSpan={7}>
+                        <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_auto_auto_auto]">
+                          <input
+                            className={`${fieldClass} font-mono`}
+                            placeholder="Leave blank to keep current key"
+                            type="password"
+                            value={editApiKey}
+                            onChange={(event) => setEditApiKey(event.target.value)}
+                          />
+                          <label className="flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={editVerifySsl}
+                              onChange={(event) => setEditVerifySsl(event.target.checked)}
+                            />
+                            Verify SSL
+                          </label>
+                          <Button
+                            variant="primary"
+                            disabled={updateCredentials.isPending}
+                            onClick={() => saveCredentials(feed)}
+                          >
+                            {updateCredentials.isPending ? "Saving..." : "Save"}
+                          </Button>
+                          <Button variant="quiet" onClick={closeCredentialEdit}>
+                            Cancel
+                          </Button>
+                        </div>
+                        {credentialError ? (
+                          <p className="mt-3 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                            {credentialError}
+                          </p>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -1,17 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card } from "../components/Card";
-import { getNetworks } from "../lib/api";
+import { Card } from "../../components/Card";
+import { getNetworks } from "../../lib/api";
 
-export function VLANs() {
+export function NetworksTab() {
   const networks = useQuery({ queryKey: ["networks"], queryFn: getNetworks });
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Networks and VLANs</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Network segments, zones, subnets, and enabled state.
-        </p>
-      </header>
       <Card title="Networks and VLANs">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">

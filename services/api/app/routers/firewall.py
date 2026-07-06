@@ -20,10 +20,7 @@ async def list_policies(db: AsyncSession = Depends(get_db)) -> list[FirewallPoli
         .group_by(FirewallPolicy.id)
         .order_by(FirewallPolicy.src_zone, FirewallPolicy.dst_zone, FirewallPolicy.name)
     )
-    return [
-        FirewallPolicyOut.model_validate({**policy.__dict__, "hit_count": count})
-        for policy, count in result.all()
-    ]
+    return [FirewallPolicyOut.model_validate({**policy.__dict__, "hit_count": count}) for policy, count in result.all()]
 
 
 @router.get("/rules", response_model=list[FirewallRuleOut])
@@ -37,7 +34,9 @@ async def list_logs(
     skip: int = 0,
     limit: int = Query(default=100, le=1000),
     src_ip: str | None = None,
+    dst_ip: str | None = None,
     rule_name: str | None = None,
+    action: str | None = None,
     from_ts: datetime | None = None,
     to_ts: datetime | None = None,
     db: AsyncSession = Depends(get_db),
@@ -45,8 +44,12 @@ async def list_logs(
     stmt = select(FirewallLog)
     if src_ip:
         stmt = stmt.where(FirewallLog.src_ip == src_ip)
+    if dst_ip:
+        stmt = stmt.where(FirewallLog.dst_ip == dst_ip)
     if rule_name:
         stmt = stmt.where(FirewallLog.rule_name == rule_name)
+    if action:
+        stmt = stmt.where(func.lower(FirewallLog.action) == action.lower())
     if from_ts:
         stmt = stmt.where(FirewallLog.timestamp >= from_ts)
     if to_ts:

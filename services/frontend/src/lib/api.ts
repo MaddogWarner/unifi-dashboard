@@ -122,6 +122,20 @@ export type FirewallLog = {
   src_port: number | null;
   dst_port: number | null;
   protocol: string | null;
+  interface: string | null;
+  direction: string | null;
+  matched_policy_id: number | null;
+  raw_line: string;
+};
+
+export type FirewallLogParams = {
+  skip?: number;
+  limit?: number;
+  src_ip?: string;
+  dst_ip?: string;
+  rule_name?: string;
+  action?: string;
+  from_ts?: string;
 };
 
 export type FirewallRule = {
@@ -337,7 +351,14 @@ export const del = <T>(path: string) => send<T>("DELETE", path);
 
 export const getFirewallPolicies = () => get<FirewallPolicy[]>("/firewall/policies");
 export const getFirewallRules = () => get<FirewallRule[]>("/firewall/rules");
-export const getFirewallLogs = (params = "") => get<FirewallLog[]>(`/firewall/logs${params}`);
+export const getFirewallLogs = (params: FirewallLogParams = {}) => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  });
+  const query = search.toString();
+  return get<FirewallLog[]>(`/firewall/logs${query ? `?${query}` : ""}`);
+};
 export const getThreats = () => get<ThreatEvent[]>("/threats/events");
 export const getIdsStatus = () => get<IdsStatus>("/threats/ids-status");
 export type UnifiZone = { id: string | null; name: string };

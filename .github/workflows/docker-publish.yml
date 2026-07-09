@@ -75,6 +75,8 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
+      # SARIF scan is report-only: trivy-action scans all severities for SARIF,
+      # so gating happens in the table-format step below instead.
       - name: Trivy scan — ${{ matrix.service }}
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
@@ -82,9 +84,7 @@ jobs:
           image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:scan-${{ github.sha }}
           format: sarif
           output: trivy-${{ matrix.service }}.sarif
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
+          exit-code: '0'
 
       - name: Upload Trivy results — ${{ matrix.service }}
         if: always()
@@ -92,6 +92,17 @@ jobs:
         with:
           sarif_file: trivy-${{ matrix.service }}.sarif
           category: container-${{ matrix.service }}
+
+      - name: Trivy gate — ${{ matrix.service }}
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:scan-${{ github.sha }}
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-setup-trivy: true
 
       - name: Build and push
         if: github.event_name != 'pull_request'

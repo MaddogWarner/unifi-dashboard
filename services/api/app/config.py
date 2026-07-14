@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     log_retention_days: int = 30
     poll_interval_seconds: int = Field(default=60, ge=10)
     api_allowed_origins: str = ""
+    metrics_token: str = ""
 
     @property
     def database_url(self) -> str:

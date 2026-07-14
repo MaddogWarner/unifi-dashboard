@@ -7,12 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import audit_event
 from app.auth import current_active_user
+from app.collectors.threat_feed_collector import validate_outbound_url
 from app.database import get_db
 from app.models.settings import AppSetting
 from app.models.user import User
 from app.schemas.settings import SettingsUpdate
 
 router = APIRouter()
+SECRET_SETTINGS = {"notifications.ntfy_token"}
+SECRET_MASK = "********"
 
 VALID_SETTINGS = {
     "unifi.host",
@@ -28,7 +31,26 @@ VALID_SETTINGS = {
     "threat_feed.direction_mode",
     "http_proxy.enabled",
     "http_proxy.url",
+    "retention.firewall_logs_days",
+    "retention.threat_events_days",
+    "retention.scan_results_days",
+    "notifications.enabled",
+    "notifications.severity_threshold",
+    "notifications.ntfy_url",
+    "notifications.ntfy_token",
+    "notifications.webhook_url",
 }
+
+
+def _mask_secrets(settings: dict[str, str]) -> dict[str, str]:
+    return {
+        key: SECRET_MASK if key in SECRET_SETTINGS and value else value
+        for key, value in settings.items()
+    }
+
+
+def _preserve_secret(key: str, value: str) -> bool:
+    return key in SECRET_SETTINGS and value == SECRET_MASK
 
 
 def _validate_settings(settings: dict[str, str]) -> None:
@@ -48,7 +70,12 @@ def _validate_settings(settings: dict[str, str]) -> None:
         raise HTTPException(400, "unifi.site must not be empty")
     if "unifi.verify_ssl" in settings and settings["unifi.verify_ssl"].lower() not in {"true", "false"}:
         raise HTTPException(400, "unifi.verify_ssl must be true or false")
-    for key in ("cve_monitoring.enabled", "threat_feed.enabled", "http_proxy.enabled"):
+    for key in (
+        "cve_monitoring.enabled",
+        "threat_feed.enabled",
+        "http_proxy.enabled",
+        "notifications.enabled",
+    ):
         if key in settings and settings[key].lower() not in {"true", "false"}:
             raise HTTPException(400, f"{key} must be true or false")
     for key in ("cve_monitoring.poll_interval_hours", "threat_feed.poll_interval_hours"):
@@ -61,6 +88,19 @@ def _validate_settings(settings: dict[str, str]) -> None:
         minimum = 1 if key == "threat_feed.poll_interval_hours" else 6
         if value < minimum:
             raise HTTPException(400, f"{key} minimum is {minimum}")
+    for key in (
+        "retention.firewall_logs_days",
+        "retention.threat_events_days",
+        "retention.scan_results_days",
+    ):
+        if key not in settings:
+            continue
+        try:
+            value = int(settings[key])
+        except ValueError as exc:
+            raise HTTPException(400, f"{key} must be an integer") from exc
+        if not 0 <= value <= 3650:
+            raise HTTPException(400, f"{key} must be between 0 and 3650")
     if "threat_feed.apply_mode" in settings and settings["threat_feed.apply_mode"] not in {
         "preview",
         "auto",
@@ -82,12 +122,23 @@ def _validate_settings(settings: dict[str, str]) -> None:
         parsed = urlparse(settings["http_proxy.url"])
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             raise HTTPException(400, "http_proxy.url must be an HTTP or HTTPS proxy URL")
+    if (
+        "notifications.severity_threshold" in settings
+        and settings["notifications.severity_threshold"] not in {"critical", "warning"}
+    ):
+        raise HTTPException(400, "notifications.severity_threshold must be critical or warning")
+    for key in ("notifications.ntfy_url", "notifications.webhook_url"):
+        if key in settings and settings[key]:
+            try:
+                validate_outbound_url(settings[key], allow_private=True)
+            except ValueError as exc:
+                raise HTTPException(400, f"{key}: {exc}") from exc
 
 
 @router.get("/", response_model=dict[str, str])
 async def get_settings(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     rows = (await db.scalars(select(AppSetting))).all()
-    return {row.key: row.value for row in rows}
+    return _mask_secrets({row.key: row.value for row in rows})
 
 
 @router.put("/", response_model=dict[str, str])
@@ -99,6 +150,8 @@ async def update_settings(
     _validate_settings(body.settings)
     for key, value in body.settings.items():
         row = await db.get(AppSetting, key)
+        if _preserve_secret(key, value):
+            continue
         if row:
             row.value = value
         else:
@@ -106,4 +159,4 @@ async def update_settings(
     await db.commit()
     audit_event("settings.updated", user=user, keys=",".join(sorted(body.settings)))
     rows = (await db.scalars(select(AppSetting))).all()
-    return {row.key: row.value for row in rows}
+    return _mask_secrets({row.key: row.value for row in rows})

@@ -14,6 +14,7 @@ from app.audit import audit_event
 from app.auth import auth_backend, current_active_user, current_superuser, fastapi_users
 from app.collectors.cve_collector import run_cve_collector
 from app.collectors.poller import run_poll_loop
+from app.collectors.retention import run_retention_loop
 from app.collectors.syslog import start_syslog_server
 from app.collectors.threat_feed_collector import (
     recover_orphaned_approvals,
@@ -25,6 +26,7 @@ from app.models import (  # noqa: F401
     cve,
     firewall,
     network,
+    notification,
     scan,
     threat,
     threatfeed,
@@ -38,7 +40,9 @@ from app.routers import (
     dashboard,
     drift,
     health,
+    metrics,
     networks,
+    notifications,
     threats,
 )
 from app.routers import (
@@ -58,6 +62,7 @@ from app.routers import (
 )
 from app.routers.auth_setup import router as setup_router
 from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.services.notifier import run_notifier_loop
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -77,6 +82,14 @@ SETTING_DEFAULTS = {
     "threat_feed.rule_action": "drop",
     "http_proxy.enabled": "false",
     "http_proxy.url": "",
+    "retention.firewall_logs_days": str(app_config.log_retention_days),
+    "retention.threat_events_days": "90",
+    "retention.scan_results_days": "90",
+    "notifications.enabled": "false",
+    "notifications.severity_threshold": "critical",
+    "notifications.ntfy_url": "",
+    "notifications.ntfy_token": "",
+    "notifications.webhook_url": "",
 }
 DEFAULT_FEEDS = [
     {
@@ -417,6 +430,8 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(start_syslog_server()),
         asyncio.create_task(run_cve_collector()),
         asyncio.create_task(run_threat_feed_collector()),
+        asyncio.create_task(run_retention_loop()),
+        asyncio.create_task(run_notifier_loop()),
     ]
     log.info("Application startup complete; background collectors started")
     yield
@@ -475,6 +490,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
+app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["metrics"])
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
     prefix="/api/v1/auth",
@@ -517,5 +533,11 @@ app.include_router(
     threatfeed_router.router,
     prefix="/api/v1/threatfeed",
     tags=["threatfeed"],
+    dependencies=protected,
+)
+app.include_router(
+    notifications.router,
+    prefix="/api/v1/notifications",
+    tags=["notifications"],
     dependencies=protected,
 )

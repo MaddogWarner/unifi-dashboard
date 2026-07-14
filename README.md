@@ -31,6 +31,9 @@ A self-hosted Docker Compose stack that connects to a local Ubiquiti UniFi conso
 - **Port scan validation** — triggers nmap against RFC1918 targets only, cross-references open ports against expected zone policies to surface enforcement gaps
 - **CVE monitoring** *(optional)* — polls the NVD modified feed and Ubiquiti security bulletins for HIGH and CRITICAL CVEs, cross-references them against firmware versions on your connected devices, and surfaces upgrade alerts
 - **Threat feed integration** *(optional, experimental)* — polls public IP blocklists (FireHOL, Spamhaus DROP, or custom feeds) and pushes them to UniFi as address groups and firewall rules; also supports MISP (Malware Information Sharing Platform) as an authenticated threat intelligence source; supports Manual mode (approval per change) or Auto Push mode
+- **Data retention** — batched pruning of firewall logs, threat events, and scan results on a configurable schedule so the database doesn't grow unbounded on small hosts
+- **Push notifications** *(optional)* — ntfy and generic webhook alerts for newly active attention-feed findings, with a configurable severity threshold and flap suppression
+- **Prometheus metrics** *(optional)* — bearer-token-protected `/api/v1/metrics` endpoint for external monitoring
 - **MCP server** — 15 tools for Claude Code / Codex to query live dashboard data conversationally
 
 ---
@@ -317,9 +320,9 @@ The scanner container requires `NET_RAW` and `NET_ADMIN` capabilities for SYN sc
 
 ## Optional Features
 
-The CVE and threat-feed collectors below are disabled by default. Enable and configure them from the **Settings** page in the dashboard. All settings are stored in the database and take effect within the next poll cycle — no container restart required.
+The CVE and threat-feed collectors, and push notifications, are disabled by default. Data retention runs automatically with sensible defaults. All of the below are configured from the **Settings** page in the dashboard and stored in the database — changes take effect within the next poll/eval cycle, no container restart required.
 
-An optional HTTP proxy URL can be configured in Settings if the host running the stack does not have direct internet access. The proxy applies to all outbound HTTP calls from both collectors.
+An optional HTTP proxy URL can be configured in Settings if the host running the stack does not have direct internet access. The proxy applies to all outbound HTTP calls from the collectors and the notifier.
 
 ### CVE Monitoring
 
@@ -401,6 +404,7 @@ All endpoints are under `/api/v1/` and proxied through nginx.
 | Endpoint | Method | Description |
 | -------- | ------ | ----------- |
 | `/api/v1/health` | GET | Service health, DB status, UniFi API reachability |
+| `/api/v1/metrics` | GET | Prometheus metrics — requires `Authorization: Bearer <METRICS_TOKEN>`; 404 if unset |
 | `/api/v1/firewall/policies` | GET | Zone-based policies with hit counts |
 | `/api/v1/firewall/rules` | GET | Legacy firewall rules with hit counts |
 | `/api/v1/firewall/logs` | GET | Paginated syslog firewall events (filter: src_ip, rule_name) |
@@ -417,6 +421,7 @@ All endpoints are under `/api/v1/` and proxied through nginx.
 | `/api/v1/scan/{id}` | GET | Poll scan result |
 | `/api/v1/settings` | GET | Read all runtime settings |
 | `/api/v1/settings` | PUT | Update runtime settings (feature toggles, intervals, proxy URL) |
+| `/api/v1/notifications/test` | POST | Send a test notification through each configured channel |
 | `/api/v1/cve/alerts` | GET | Paginated CVE alerts — filter by severity and acknowledged state |
 | `/api/v1/cve/alerts/{id}/acknowledge` | POST | Mark a CVE alert as acknowledged |
 | `/api/v1/cve/devices` | GET | Device inventory with matched CVE IDs per device |

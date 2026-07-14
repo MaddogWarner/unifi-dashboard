@@ -67,6 +67,7 @@ const defaults: Record<string, string> = {
   "retention.firewall_logs_days": "30",
   "retention.threat_events_days": "90",
   "retention.scan_results_days": "90",
+  "retention.assessment_runs_days": "365",
   "notifications.enabled": "false",
   "notifications.severity_threshold": "critical",
   "notifications.ntfy_url": "",
@@ -309,7 +310,8 @@ export function Settings() {
           {[
             ["retention.firewall_logs_days", "Firewall logs"],
             ["retention.threat_events_days", "Threat events"],
-            ["retention.scan_results_days", "Scan results"]
+            ["retention.scan_results_days", "Scan results"],
+            ["retention.assessment_runs_days", "Assessment runs"]
           ].map(([key, label]) => (
             <label key={key} className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
               {label} (days)

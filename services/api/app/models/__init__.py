@@ -12,6 +12,7 @@ from app.models.threat import ThreatEvent
 from app.models.user import User
 
 __all__ = [
+    "AssessmentRun",
     "FirewallLog",
     "FirewallPolicy",
     "FirewallPortForward",
@@ -24,3 +25,4 @@ __all__ = [
     "ThreatEvent",
     "User",
 ]
+from app.models.assessment import AssessmentRun

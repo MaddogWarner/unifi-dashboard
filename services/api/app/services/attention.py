@@ -5,11 +5,12 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.assessment import AssessmentRun
 from app.models.cve import CVEAlert
 from app.models.firewall import FirewallLog, FirewallPolicy
 from app.models.threat import ThreatEvent
-from app.routers.assessment import assessment as build_assessment
 from app.schemas.dashboard import AttentionItemOut, DashboardAttentionOut, DashboardStatusOut
+from app.services.assessment import build_report
 from app.services.policy_engine import detect_conflicts
 from app.services.unifi_client import check_connectivity
 
@@ -47,7 +48,7 @@ async def build_attention(
 
     assessment_score: int | None
     try:
-        report = await build_assessment(db)
+        report = await build_report(db)
         assessment_score = report.score
         for check in report.checks:
             if check.status == "pass":
@@ -74,6 +75,37 @@ async def build_attention(
                 link="/assessment",
             )
         )
+
+    recent_runs = list(
+        (
+            await db.scalars(
+                select(AssessmentRun)
+                .where(AssessmentRun.created_at >= now - timedelta(days=14))
+                .order_by(AssessmentRun.created_at)
+            )
+        ).all()
+    )
+    episodes: list[AssessmentRun] = []
+    for run in recent_runs:
+        if not episodes or run.status_hash != episodes[-1].status_hash:
+            episodes.append(run)
+    if len(episodes) >= 2:
+        previous, current = episodes[-2:]
+        started_at = _normalise_utc(current.created_at)
+        if started_at and current.score < previous.score and started_at >= now - timedelta(days=7):
+            items.append(
+                AttentionItemOut(
+                    severity="warning",
+                    category="assessment",
+                    title="Assessment score dropped",
+                    detail=(
+                        f"Score dropped {previous.score} → {current.score} on "
+                        f"{started_at.strftime('%d/%m/%Y %H:%M')}."
+                    ),
+                    link="/assessment",
+                    timestamp=started_at,
+                )
+            )
 
     conflicts = detect_conflicts(policies)
     if conflicts:

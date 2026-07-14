@@ -6,6 +6,7 @@ from pytest import MonkeyPatch
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base
+from app.models.assessment import AssessmentRun
 from app.models.cve import CVEAlert
 from app.models.firewall import FirewallLog
 from app.models.threat import ThreatEvent
@@ -189,5 +190,112 @@ def test_attention_items_are_sorted_by_severity(monkeypatch: MonkeyPatch) -> Non
         rank = {"critical": 0, "warning": 1, "info": 2}
         severities = [rank[item.severity] for item in result.items]
         assert severities == sorted(severities)
+
+    asyncio.run(_with_session(scenario))
+
+
+def test_assessment_regression_uses_episodes_and_clears_on_recovery(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    _set_connectivity(monkeypatch, True)
+
+    async def scenario(session: AsyncSession) -> None:
+        now = datetime.now(UTC)
+        session.add_all(
+            [
+                AssessmentRun(
+                    created_at=now - timedelta(days=3),
+                    score=90,
+                    pass_count=9,
+                    warn_count=1,
+                    fail_count=0,
+                    status_hash="before",
+                    checks_json="[]",
+                ),
+                AssessmentRun(
+                    created_at=now - timedelta(days=2),
+                    score=80,
+                    pass_count=8,
+                    warn_count=1,
+                    fail_count=1,
+                    status_hash="drop",
+                    checks_json="[]",
+                ),
+                AssessmentRun(
+                    created_at=now - timedelta(days=1),
+                    score=80,
+                    pass_count=8,
+                    warn_count=1,
+                    fail_count=1,
+                    status_hash="drop",
+                    checks_json="[]",
+                ),
+            ]
+        )
+        await session.commit()
+
+        result = await attention(db=session)
+        regression = [item for item in result.items if item.title == "Assessment score dropped"]
+        assert len(regression) == 1
+        assert "90 → 80" in regression[0].detail
+
+        session.add(
+            AssessmentRun(
+                created_at=now,
+                score=95,
+                pass_count=10,
+                warn_count=0,
+                fail_count=0,
+                status_hash="recovered",
+                checks_json="[]",
+            )
+        )
+        await session.commit()
+        result = await attention(db=session)
+        assert not any(item.title == "Assessment score dropped" for item in result.items)
+
+    asyncio.run(_with_session(scenario))
+
+
+def test_assessment_regression_ages_out_after_seven_days(monkeypatch: MonkeyPatch) -> None:
+    _set_connectivity(monkeypatch, True)
+
+    async def scenario(session: AsyncSession) -> None:
+        now = datetime.now(UTC)
+        session.add_all(
+            [
+                AssessmentRun(
+                    created_at=now - timedelta(days=9),
+                    score=90,
+                    pass_count=9,
+                    warn_count=1,
+                    fail_count=0,
+                    status_hash="before",
+                    checks_json="[]",
+                ),
+                AssessmentRun(
+                    created_at=now - timedelta(days=8),
+                    score=80,
+                    pass_count=8,
+                    warn_count=1,
+                    fail_count=1,
+                    status_hash="drop",
+                    checks_json="[]",
+                ),
+                AssessmentRun(
+                    created_at=now - timedelta(days=1),
+                    score=80,
+                    pass_count=8,
+                    warn_count=1,
+                    fail_count=1,
+                    status_hash="drop",
+                    checks_json="[]",
+                ),
+            ]
+        )
+        await session.commit()
+
+        result = await attention(db=session)
+        assert not any(item.title == "Assessment score dropped" for item in result.items)
 
     asyncio.run(_with_session(scenario))

@@ -17,6 +17,7 @@ RETENTION_TARGETS = (
     ("retention.firewall_logs_days", "firewall_logs", "timestamp"),
     ("retention.threat_events_days", "threat_events", "timestamp"),
     ("retention.scan_results_days", "scan_results", "created_at"),
+    ("retention.assessment_runs_days", "assessment_runs", "created_at"),
 )
 
 

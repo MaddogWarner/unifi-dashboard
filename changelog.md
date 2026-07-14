@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.2.0] - 2026-07-14
+
+### Added
+
+- Added threat-feed hit correlation across all aggregated remote sources, including deterministic
+  CIDR attribution, daily volume, top blocked sources, dashboard UI, and MCP access.
+- Added assessment score history with change episodes, daily heartbeats, configurable retention,
+  regression attention alerts, trend UI, and MCP access.
+
 All notable project changes are recorded here.
 
 ## [2.1.0] - 2026-07-14

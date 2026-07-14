@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import audit_event
 from app.auth import current_active_user
-from app.collectors.threat_feed_collector import validate_outbound_url
+from app.collectors.threat_feed_collector import VALID_RULE_ACTIONS, validate_outbound_url
 from app.database import get_db
 from app.models.settings import AppSetting
 from app.models.user import User
@@ -29,6 +29,7 @@ VALID_SETTINGS = {
     "threat_feed.zones",
     "threat_feed.apply_mode",
     "threat_feed.direction_mode",
+    "threat_feed.rule_action",
     "http_proxy.enabled",
     "http_proxy.url",
     "retention.firewall_logs_days",
@@ -111,6 +112,10 @@ def _validate_settings(settings: dict[str, str]) -> None:
         "bidirectional",
     }:
         raise HTTPException(400, "threat_feed.direction_mode must be inbound or bidirectional")
+    if "threat_feed.rule_action" in settings and settings["threat_feed.rule_action"] not in VALID_RULE_ACTIONS:
+        raise HTTPException(
+            400, f"threat_feed.rule_action must be one of {', '.join(sorted(VALID_RULE_ACTIONS))}"
+        )
     if "threat_feed.zones" in settings:
         try:
             zones = json.loads(settings["threat_feed.zones"])

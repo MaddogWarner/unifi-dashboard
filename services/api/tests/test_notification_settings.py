@@ -50,3 +50,10 @@ def test_ntfy_token_masking_and_sentinel_preservation_pattern() -> None:
 def test_notification_url_rejects_cloud_metadata_address() -> None:
     with pytest.raises(HTTPException, match="local"):
         _validate_settings({"notifications.webhook_url": "http://169.254.169.254/x"})
+
+
+def test_threat_feed_rule_action_round_trips_and_validates() -> None:
+    _validate_settings({"threat_feed.rule_action": "drop"})
+    _validate_settings({"threat_feed.rule_action": "reject"})
+    with pytest.raises(HTTPException, match="threat_feed.rule_action"):
+        _validate_settings({"threat_feed.rule_action": "allow"})

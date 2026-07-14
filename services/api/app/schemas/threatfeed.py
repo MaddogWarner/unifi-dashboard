@@ -79,3 +79,32 @@ class ThreatFeedPendingRuleOut(BaseModel):
     created_at: datetime
     decided_at: datetime | None
     applied_at: datetime | None
+
+
+class ThreatFeedHitsFeedOut(BaseModel):
+    feed: str
+    hits: int
+    unique_sources: int
+
+
+class ThreatFeedHitsSourceOut(BaseModel):
+    ip: str
+    hits: int
+    feed: str
+    last_seen: datetime
+    top_dst_port: int | None
+
+
+class ThreatFeedHitsDailyOut(BaseModel):
+    date: str
+    hits: int
+
+
+class ThreatFeedHitsOut(BaseModel):
+    window_days: int
+    generated_at: datetime
+    total_hits: int
+    unique_sources: int
+    feeds: list[ThreatFeedHitsFeedOut]
+    top_sources: list[ThreatFeedHitsSourceOut]
+    daily: list[ThreatFeedHitsDailyOut]

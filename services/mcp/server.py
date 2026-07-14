@@ -109,6 +109,12 @@ def get_assessment() -> dict:
 
 
 @mcp.tool()
+def get_assessment_history(days: int = 30) -> list:
+    """Return assessment score history for up to 365 days."""
+    return _get(f"/assessment/history?days={max(1, min(days, 365))}")
+
+
+@mcp.tool()
 def get_policy_conflicts() -> list:
     """List detected policy conflicts."""
     return _get("/assessment/conflicts")
@@ -157,6 +163,12 @@ def get_cve_devices() -> list:
 def get_threatfeed_status() -> dict:
     """Get threat feed status, apply mode, blocked IP count, and pending approvals."""
     return _get("/threatfeed/status")
+
+
+@mcp.tool()
+def get_top_blocked_sources(days: int = 7) -> dict:
+    """Return threat-feed hit totals and top blocked remote sources."""
+    return _get(f"/threatfeed/hits?days={max(1, min(days, 90))}")
 
 
 @mcp.tool()

@@ -1,12 +1,49 @@
 import json
+import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.firewall import FirewallPolicy, FirewallPortForward, FirewallRule
 from app.models.network import IdsConfig, Network
 from app.models.scan import ScanResult
+from app.schemas.assessment import AssessmentReportOut, CheckResultOut
+
+log = logging.getLogger(__name__)
+
+
+async def build_report(db: AsyncSession) -> AssessmentReportOut:
+    policies = list((await db.scalars(select(FirewallPolicy))).all())
+    rules = list((await db.scalars(select(FirewallRule))).all())
+    try:
+        port_forwards = list((await db.scalars(select(FirewallPortForward))).all())
+    except SQLAlchemyError:
+        log.exception("Port-forward evidence table unavailable; continuing assessment without it")
+        port_forwards = []
+    networks = list((await db.scalars(select(Network))).all())
+    ids_config = await db.scalar(select(IdsConfig).order_by(IdsConfig.synced_at.desc()).limit(1))
+    last_scan = await db.scalar(
+        select(ScanResult)
+        .where(ScanResult.status == "done")
+        .order_by(ScanResult.completed_at.desc(), ScanResult.created_at.desc())
+    )
+    checks = await run_checks(policies, rules, port_forwards, networks, ids_config, last_scan)
+    pass_count = sum(1 for check in checks if check.status == "pass")
+    warn_count = sum(1 for check in checks if check.status == "warn")
+    fail_count = sum(1 for check in checks if check.status == "fail")
+    score = max(0, int(((pass_count + warn_count * 0.5) / len(checks)) * 100))
+    return AssessmentReportOut(
+        score=score,
+        pass_count=pass_count,
+        warn_count=warn_count,
+        fail_count=fail_count,
+        checks=[CheckResultOut(**check.__dict__) for check in checks],
+    )
 
 
 @dataclass

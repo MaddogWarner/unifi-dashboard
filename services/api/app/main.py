@@ -12,6 +12,7 @@ from sqlalchemy import func, inspect, select, text
 from alembic import command
 from app.audit import audit_event
 from app.auth import auth_backend, current_active_user, current_superuser, fastapi_users
+from app.collectors.assessment_history import run_assessment_history_loop
 from app.collectors.cve_collector import run_cve_collector
 from app.collectors.poller import run_poll_loop
 from app.collectors.retention import run_retention_loop
@@ -85,6 +86,7 @@ SETTING_DEFAULTS = {
     "retention.firewall_logs_days": str(app_config.log_retention_days),
     "retention.threat_events_days": "90",
     "retention.scan_results_days": "90",
+    "retention.assessment_runs_days": "365",
     "notifications.enabled": "false",
     "notifications.severity_threshold": "critical",
     "notifications.ntfy_url": "",
@@ -432,6 +434,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(run_threat_feed_collector()),
         asyncio.create_task(run_retention_loop()),
         asyncio.create_task(run_notifier_loop()),
+        asyncio.create_task(run_assessment_history_loop()),
     ]
     log.info("Application startup complete; background collectors started")
     yield

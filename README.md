@@ -282,6 +282,7 @@ For isolated local development only, `MCP_AUTH_DISABLED=true` starts the MCP ser
 | `get_ids_status` | IDS/IPS enabled state, mode, and configuration gaps |
 | `get_vlans` | All VLANs with zone assignments and policy counts |
 | `get_assessment` | Run the full scored security assessment |
+| `get_assessment_history` | Return assessment score history for the selected window |
 | `get_policy_conflicts` | List detected shadow and duplicate policy conflicts |
 | `get_drift_report` | Latest policy drift event and what changed |
 | `run_port_scan` | Trigger an nmap scan against an RFC1918 target |
@@ -289,6 +290,7 @@ For isolated local development only, `MCP_AUTH_DISABLED=true` starts the MCP ser
 | `get_cve_alerts` | List unacknowledged HIGH/CRITICAL CVEs with affected devices |
 | `get_cve_devices` | Device inventory with matched CVE counts and firmware versions |
 | `get_threatfeed_status` | Threat feed enabled state, last update, total blocked IPs |
+| `get_top_blocked_sources` | Return threat-feed hit totals and top blocked sources |
 | `get_threatfeed_entries` | Query the blocked IP/CIDR list — supports CIDR search and limit |
 | `get_threatfeed_pending_rules` | List pending threat feed rule changes awaiting approval |
 
@@ -337,6 +339,10 @@ Only HIGH (CVSS ≥ 7.0) and CRITICAL (CVSS ≥ 9.0) CVEs are stored. Alerts can
 
 ### Threat Feed Integration
 
+The Threat Feeds page correlates aggregated firewall syslog hits with the active feed CIDRs,
+showing daily volume and the top blocked remote sources for 24-hour, 7-day, and 30-day windows.
+Removed entries remain attributable as **(no longer listed)** so totals reconcile.
+
 > **⚠ Experimental — read before enabling**
 
 When enabled, the threat feed collector polls configured IP blocklists and pushes the entries to your UniFi console as address groups and firewall rules via the legacy firewall API. This feature **modifies live firewall configuration** on your UniFi console.
@@ -355,9 +361,16 @@ When enabled, the threat feed collector polls configured IP blocklists and pushe
 
 **Minimum poll interval is 1 hour.** The default sources (FireHOL Level 1 and Spamhaus DROP) are seeded on first startup but disabled — you must explicitly enable each source from the Threat Feeds page.
 
+### Assessment History
+
+The API records assessment state every 30 minutes when checks change, plus a 24-hour heartbeat.
+History is retained for 365 days by default (configurable from 0 to 3650 days). A score-drop
+episode creates a warning in the attention feed for seven days and uses the existing notification
+settings and delivery pipeline.
+
 ### Data Retention
 
-The API prunes old records in 5,000-row batches every six hours to limit database and SD-card growth. Defaults are 30 days for firewall logs and 90 days each for threat events and scan results. Configure each period under **Settings → Data Retention**; set a value to `0` to keep that record type forever. `LOG_RETENTION_DAYS` only seeds the firewall-log value on first startup, so subsequent changes should be made in Settings.
+The API prunes old records in 5,000-row batches every six hours to limit database and SD-card growth. Defaults are 30 days for firewall logs, 90 days each for threat events and scan results, and 365 days for assessment runs. Configure each period under **Settings → Data Retention**; set a value to `0` to keep that record type forever. `LOG_RETENTION_DAYS` only seeds the firewall-log value on first startup, so subsequent changes should be made in Settings.
 
 ### Notifications
 

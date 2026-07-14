@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.2.1] - 2026-07-14
+
+### Fixed
+
+- Settings could not be saved once `threat_feed.rule_action` existed in the database (seeded by
+  default) — the key was missing from the settings router's allowlist, so any save round-tripped
+  it into a rejected `Unknown setting key` error. Added it to the allowlist with the same
+  drop/deny/reject validation the threat-feed collector already enforces.
+
 ## [2.2.0] - 2026-07-14
 
 ### Added

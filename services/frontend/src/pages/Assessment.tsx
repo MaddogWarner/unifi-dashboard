@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CheckCircle2, CircleAlert, CircleX } from "lucide-react";
 import { Card } from "../components/Card";
-import { getAssessment } from "../lib/api";
+import { getAssessment, getAssessmentHistory } from "../lib/api";
 
 export function Assessment() {
   const assessment = useQuery({ queryKey: ["assessment"], queryFn: getAssessment });
+  const [historyDays, setHistoryDays] = useState(30);
+  const history = useQuery({ queryKey: ["assessment-history", historyDays], queryFn: () => getAssessmentHistory(historyDays) });
   const icon = { pass: CheckCircle2, warn: CircleAlert, fail: CircleX };
   const evidenceLabel = (type: string) =>
     type
@@ -22,6 +26,10 @@ export function Assessment() {
       </header>
       <Card title="Current score">
         <p className="text-4xl font-semibold text-brand-700 dark:text-brand-300">{assessment.data?.score ?? "-"}%</p>
+      </Card>
+      <Card title="Score history">
+        <div className="mt-4 flex justify-end"><select className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" value={historyDays} onChange={(event) => setHistoryDays(Number(event.target.value))}><option value={7}>7 days</option><option value={30}>30 days</option><option value={90}>90 days</option></select></div>
+        {(history.data?.length ?? 0) >= 2 ? <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={history.data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="created_at" tickFormatter={(value: string) => new Date(value).toLocaleDateString()} /><YAxis domain={[0, 100]} /><Tooltip labelFormatter={(value) => new Date(String(value)).toLocaleString()} formatter={(value, name, item) => name === "score" ? [`${value}% (pass ${item.payload.pass_count}, warn ${item.payload.warn_count}, fail ${item.payload.fail_count})`, "Score"] : [value, name]} /><Area dataKey="score" stroke="#2563eb" fill="#93c5fd" /></AreaChart></ResponsiveContainer></div> : <p className="mt-6 text-sm text-slate-500">History builds up as the assessment runs — check back tomorrow.</p>}
       </Card>
       {(assessment.data?.checks ?? []).map((check) => {
         const Icon = icon[check.status];

@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, ShieldBan, Trash2, X } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../../components/ActionToast";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
@@ -9,6 +10,7 @@ import {
   approveThreatFeedRule,
   deleteThreatFeedSource,
   getThreatFeedEntries,
+  getThreatFeedHits,
   getThreatFeedPendingRules,
   getThreatFeedSources,
   getThreatFeedStatus,
@@ -35,6 +37,11 @@ export function FeedsTab() {
   const [editApiKey, setEditApiKey] = useState("");
   const [editVerifySsl, setEditVerifySsl] = useState(false);
   const [credentialError, setCredentialError] = useState<string | null>(null);
+  const [hitDays, setHitDays] = useState(7);
+  const hits = useQuery({
+    queryKey: ["threatfeed-hits", hitDays],
+    queryFn: () => getThreatFeedHits(hitDays)
+  });
   const status = useQuery({
     queryKey: ["threatfeed-status"],
     queryFn: getThreatFeedStatus,
@@ -186,6 +193,26 @@ export function FeedsTab() {
           <span>{(status.data?.total_entries ?? 0).toLocaleString()} IPs</span>
           <span>{status.data?.pending_count ?? 0} pending approvals</span>
         </div>
+      </Card>
+
+      <Card title="Blocked by threat feeds">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex gap-8 text-sm">
+            <div><p className="text-slate-500">Total hits</p><p className="text-2xl font-semibold">{hits.data?.total_hits ?? 0}</p></div>
+            <div><p className="text-slate-500">Unique sources</p><p className="text-2xl font-semibold">{hits.data?.unique_sources ?? 0}</p></div>
+          </div>
+          <select className={fieldClass} value={hitDays} onChange={(event) => setHitDays(Number(event.target.value))}>
+            <option value={1}>24 hours</option><option value={7}>7 days</option><option value={30}>30 days</option>
+          </select>
+        </div>
+        {hits.data?.total_hits ? (
+          <>
+            <div className="mt-6 h-56">
+              <ResponsiveContainer width="100%" height="100%"><BarChart data={hits.data.daily}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="hits" fill="#2563eb" /></BarChart></ResponsiveContainer>
+            </div>
+            <div className="mt-6 overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className={tableHeadClass}><tr><th className="p-2">IP</th><th>Hits</th><th>Feed</th><th>Last seen</th><th>Top port</th></tr></thead><tbody>{hits.data.top_sources.map((source) => <tr key={source.ip} className="border-t border-slate-100 dark:border-slate-800"><td className="p-2 font-mono">{source.ip}</td><td>{source.hits}</td><td>{source.feed}</td><td>{formatDate(source.last_seen)}</td><td>{source.top_dst_port ?? "-"}</td></tr>)}</tbody></table></div>
+          </>
+        ) : <p className="mt-6 text-sm text-slate-500">No threat-feed blocks in this window.</p>}
       </Card>
 
       <Card title="Pending Rule Changes">

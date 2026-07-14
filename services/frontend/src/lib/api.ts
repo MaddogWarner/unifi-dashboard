@@ -357,6 +357,31 @@ export type ThreatFeedPendingRule = {
   applied_at: string | null;
 };
 
+export type ThreatFeedHits = {
+  window_days: number;
+  generated_at: string;
+  total_hits: number;
+  unique_sources: number;
+  feeds: Array<{ feed: string; hits: number; unique_sources: number }>;
+  top_sources: Array<{
+    ip: string;
+    hits: number;
+    feed: string;
+    last_seen: string;
+    top_dst_port: number | null;
+  }>;
+  daily: Array<{ date: string; hits: number }>;
+};
+
+export type AssessmentHistoryPoint = {
+  created_at: string;
+  score: number;
+  pass_count: number;
+  warn_count: number;
+  fail_count: number;
+  checks: Array<{ check_id: string; label: string; status: "pass" | "warn" | "fail" }>;
+};
+
 export async function get<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     headers: authHeaders()
@@ -397,6 +422,8 @@ export type UnifiZone = { id: string | null; name: string };
 export const getNetworks = () => get<Network[]>("/networks/");
 export const getZones = () => get<UnifiZone[]>("/networks/zones");
 export const getAssessment = () => get<AssessmentReport>("/assessment/");
+export const getAssessmentHistory = (days = 30) =>
+  get<AssessmentHistoryPoint[]>(`/assessment/history?days=${days}`);
 export const getDashboardAttention = () => get<DashboardAttention>("/dashboard/attention");
 export const getDriftSnapshots = () => get<Snapshot[]>("/drift/snapshots");
 export const getDriftDiff = (a: number, b: number) => get<DriftDiff>(`/drift/diff/${a}/${b}`);
@@ -433,6 +460,8 @@ export const updateThreatFeedSource = (id: number, data: ThreatFeedUpdatePayload
   put<ThreatFeedSource>(`/threatfeed/feeds/${id}`, data);
 export const deleteThreatFeedSource = (id: number) => del<void>(`/threatfeed/feeds/${id}`);
 export const getThreatFeedStatus = () => get<ThreatFeedStatus>("/threatfeed/status");
+export const getThreatFeedHits = (days = 7) =>
+  get<ThreatFeedHits>(`/threatfeed/hits?days=${days}`);
 export const getThreatFeedEntries = (params?: { skip?: number; limit?: number; cidr?: string }) => {
   const query = new URLSearchParams();
   Object.entries(params ?? {}).forEach(([key, value]) => {

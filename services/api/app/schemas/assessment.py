@@ -36,6 +36,21 @@ class AssessmentReportOut(BaseModel):
     checks: list[CheckResultOut]
 
 
+class AssessmentHistoryCheckOut(BaseModel):
+    check_id: str
+    label: str
+    status: Literal["pass", "warn", "fail"]
+
+
+class AssessmentHistoryOut(BaseModel):
+    created_at: datetime
+    score: int
+    pass_count: int
+    warn_count: int
+    fail_count: int
+    checks: list[AssessmentHistoryCheckOut]
+
+
 class ConflictReportOut(BaseModel):
     policy_a_id: int
     policy_b_id: int

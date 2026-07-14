@@ -13,7 +13,7 @@ from app.models.cve import CVEAlert
 from app.models.firewall import FirewallLog, FirewallPolicy
 from app.models.threat import ThreatEvent
 from app.models.threatfeed import ThreatFeedEntry, ThreatFeedPendingRule
-from app.routers.assessment import assessment as build_assessment
+from app.services.assessment import build_report
 from app.services.unifi_client import check_connectivity
 
 router = APIRouter()
@@ -71,7 +71,7 @@ async def build_metrics(db: AsyncSession) -> bytes:
     )
 
     reachable.set(1 if await check_connectivity() else 0)
-    report = await build_assessment(db)
+    report = await build_report(db)
     assessment_score.set(report.score)
     for status, value in (
         ("pass", report.pass_count),

@@ -1,5 +1,8 @@
 # Roadmap
 
+Items 4 and 7 were pulled into the threat-feed hit correlation and assessment history plan on
+14 July 2026.
+
 Feature ideas from the July 2026 codebase review, not yet built. Numbering carried over from
 that review (items 1–3 — data retention, notifications, Prometheus metrics — shipped in
 [v2.1.0](https://github.com/MaddogWarner/unifi-dashboard/releases/tag/v2.1.0)).

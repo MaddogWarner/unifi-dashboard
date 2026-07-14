@@ -1,5 +1,12 @@
 # UniFi API Reference
 
+## Dashboard correlation endpoints
+
+- `GET /api/v1/threatfeed/hits?days=7` returns aggregate threat-feed hits, per-feed attribution,
+  daily totals, and the top ten remote sources. `days` accepts 1–90.
+- `GET /api/v1/assessment/history?days=30` returns ordered assessment score history with compact
+  check statuses. `days` accepts 1–365.
+
 Empirically verified against: **UDR 5G Max, UniFi OS 5.1.12, Network 10.4.57**
 
 ---

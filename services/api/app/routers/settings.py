@@ -35,6 +35,7 @@ VALID_SETTINGS = {
     "retention.firewall_logs_days",
     "retention.threat_events_days",
     "retention.scan_results_days",
+    "retention.assessment_runs_days",
     "notifications.enabled",
     "notifications.severity_threshold",
     "notifications.ntfy_url",
@@ -93,6 +94,7 @@ def _validate_settings(settings: dict[str, str]) -> None:
         "retention.firewall_logs_days",
         "retention.threat_events_days",
         "retention.scan_results_days",
+        "retention.assessment_runs_days",
     ):
         if key not in settings:
             continue

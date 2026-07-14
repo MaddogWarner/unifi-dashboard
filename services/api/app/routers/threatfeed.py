@@ -25,15 +25,24 @@ from app.models.user import User
 from app.schemas.threatfeed import (
     ThreatFeedCreate,
     ThreatFeedEntryList,
+    ThreatFeedHitsOut,
     ThreatFeedPendingRuleOut,
     ThreatFeedSourceOut,
     ThreatFeedStatusOut,
     ThreatFeedUpdate,
     ThreatFeedZoneRuleOut,
 )
+from app.services.feed_hits import build_feed_hits
 
 router = APIRouter()
 log = logging.getLogger(__name__)
+
+
+@router.get("/hits", response_model=ThreatFeedHitsOut)
+async def get_feed_hits(
+    days: int = Query(default=7, ge=1, le=90), db: AsyncSession = Depends(get_db)
+) -> ThreatFeedHitsOut:
+    return await build_feed_hits(db, days)
 
 
 @router.get("/feeds", response_model=list[ThreatFeedSourceOut])

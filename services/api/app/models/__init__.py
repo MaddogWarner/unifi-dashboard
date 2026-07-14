@@ -6,6 +6,7 @@ from app.models.firewall import (
     PolicySnapshot,
 )
 from app.models.network import IdsConfig, Network
+from app.models.notification import NotificationState
 from app.models.scan import ScanResult
 from app.models.threat import ThreatEvent
 from app.models.user import User
@@ -17,6 +18,7 @@ __all__ = [
     "FirewallRule",
     "IdsConfig",
     "Network",
+    "NotificationState",
     "PolicySnapshot",
     "ScanResult",
     "ThreatEvent",

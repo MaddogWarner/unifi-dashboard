@@ -2,6 +2,20 @@
 
 All notable project changes are recorded here.
 
+## [2.1.0] - 2026-07-14
+
+### Added
+
+- Added configurable batched retention for firewall logs, threat events and scan results.
+- Added ntfy and generic webhook notifications for newly active dashboard attention items, including severity thresholds, flap suppression and an authenticated test action.
+- Added bearer-token-protected Prometheus gauges with a 60-second render cache.
+
+### Security
+
+- Added reusable masking and sentinel-preservation handling for the stored ntfy access token.
+- Restricted notification destinations to validated HTTP/HTTPS URLs that block loopback, link-local, multicast, reserved and cloud-metadata endpoints while permitting self-hosted RFC1918 services.
+- Disabled the metrics route with a non-disclosing 404 unless `METRICS_TOKEN` is configured, and used constant-time bearer-token comparison.
+
 ## [2.0.0] - 2026-07-06
 
 ### Changed

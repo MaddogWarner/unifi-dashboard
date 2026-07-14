@@ -412,6 +412,9 @@ export const getScanResult = (id: number) => get<ScanResult>(`/scan/${id}`);
 export const getSettings = () => get<Record<string, string>>("/settings/");
 export const updateSettings = (settings: Record<string, string>) =>
   put<Record<string, string>>("/settings/", { settings });
+export type NotificationTestResult = { channel: string; ok: boolean; error: string | null };
+export const testNotifications = () =>
+  post<NotificationTestResult[]>("/notifications/test", {});
 export const getCVEAlerts = (params?: { severity?: string; acknowledged?: boolean; limit?: number }) => {
   const query = new URLSearchParams();
   Object.entries(params ?? {}).forEach(([key, value]) => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
+import { Bell, Eye, EyeOff, Save, ShieldCheck } from "lucide-react";
 import { clearActionToast, showErrorToast, showSuccessToast } from "../components/ActionToast";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -15,6 +15,7 @@ import {
   listUsers,
   refreshCVE,
   refreshThreatFeed,
+  testNotifications,
   updateMe,
   updateSettings
 } from "../lib/api";
@@ -62,7 +63,15 @@ const defaults: Record<string, string> = {
   "threat_feed.apply_mode": "preview",
   "threat_feed.direction_mode": "inbound",
   "http_proxy.enabled": "false",
-  "http_proxy.url": ""
+  "http_proxy.url": "",
+  "retention.firewall_logs_days": "30",
+  "retention.threat_events_days": "90",
+  "retention.scan_results_days": "90",
+  "notifications.enabled": "false",
+  "notifications.severity_threshold": "critical",
+  "notifications.ntfy_url": "",
+  "notifications.ntfy_token": "",
+  "notifications.webhook_url": ""
 };
 
 export function Settings() {
@@ -75,6 +84,7 @@ export function Settings() {
   const [draft, setDraft] = useState(defaults);
   const [showKey, setShowKey] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
   const [cpCurrent, setCpCurrent] = useState("");
   const [cpNew, setCpNew] = useState("");
   const [cpConfirm, setCpConfirm] = useState("");
@@ -169,6 +179,30 @@ export function Settings() {
     onError: (err) => {
       const message = errorMessage(err);
       setRefreshError(message);
+      showErrorToast(message);
+    }
+  });
+  const notificationTest = useMutation({
+    mutationFn: testNotifications,
+    onMutate: () => {
+      clearActionToast();
+      setNotificationError(null);
+    },
+    onSuccess: (results) => {
+      const failures = results.filter((result) => !result.ok);
+      if (failures.length) {
+        const message = failures
+          .map((result) => `${result.channel}: ${result.error ?? "Delivery failed"}`)
+          .join("; ");
+        setNotificationError(message);
+        showErrorToast("Notification test failed");
+        return;
+      }
+      showSuccessToast("Test notification sent");
+    },
+    onError: (err) => {
+      const message = errorMessage(err);
+      setNotificationError(message);
       showErrorToast(message);
     }
   });
@@ -268,6 +302,30 @@ export function Settings() {
         <p className="mt-3 text-xs text-slate-400">
           API key is stored in the application database. Changes take effect on the next poll cycle.
         </p>
+      </Card>
+
+      <Card title="Data Retention">
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {[
+            ["retention.firewall_logs_days", "Firewall logs"],
+            ["retention.threat_events_days", "Threat events"],
+            ["retention.scan_results_days", "Scan results"]
+          ].map(([key, label]) => (
+            <label key={key} className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+              {label} (days)
+              <input
+                className={fieldClass}
+                type="number"
+                min="0"
+                max="3650"
+                step="1"
+                value={draft[key]}
+                onChange={(event) => setValue(key, event.target.value)}
+              />
+              <span className="text-xs font-normal text-slate-400">0 keeps records forever</span>
+            </label>
+          ))}
+        </div>
       </Card>
 
       <Card title="Proxy">
@@ -427,6 +485,72 @@ export function Settings() {
             </p>
           )}
         </fieldset>
+      </Card>
+      <Card
+        title="Notifications"
+        action={
+          <Button
+            className="inline-flex items-center gap-2"
+            disabled={notificationTest.isPending}
+            onClick={() => notificationTest.mutate()}
+          >
+            <Bell className="h-4 w-4" />
+            {notificationTest.isPending ? "Sending…" : "Send test notification"}
+          </Button>
+        }
+      >
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={draft["notifications.enabled"] === "true"}
+              onChange={(event) => setValue("notifications.enabled", String(event.target.checked))}
+            />
+            Enable notifications
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+            Severity threshold
+            <select
+              className={fieldClass}
+              value={draft["notifications.severity_threshold"]}
+              onChange={(event) => setValue("notifications.severity_threshold", event.target.value)}
+            >
+              <option value="critical">Critical only</option>
+              <option value="warning">Critical + warning</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+            ntfy topic URL
+            <input
+              className={`${fieldClass} font-mono`}
+              value={draft["notifications.ntfy_url"]}
+              onChange={(event) => setValue("notifications.ntfy_url", event.target.value)}
+              placeholder="https://ntfy.sh/my-topic"
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+            ntfy access token
+            <input
+              className={`${fieldClass} font-mono`}
+              type="password"
+              value={draft["notifications.ntfy_token"]}
+              onChange={(event) => setValue("notifications.ntfy_token", event.target.value)}
+              placeholder="Optional access token"
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-300 md:col-span-2">
+            Webhook URL
+            <input
+              className={`${fieldClass} font-mono`}
+              value={draft["notifications.webhook_url"]}
+              onChange={(event) => setValue("notifications.webhook_url", event.target.value)}
+              placeholder="https://automation.example.com/hooks/unifi"
+            />
+          </label>
+        </div>
+        {notificationError ? (
+          <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{notificationError}</p>
+        ) : null}
       </Card>
       <Card title="Appearance">
         <div className="flex gap-2">

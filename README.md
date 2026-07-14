@@ -177,7 +177,8 @@ Copy `.env.example` to `.env` and set the values below.
 | `AUTH_TOKEN_LIFETIME_SECONDS` | No | `86400` | Dashboard login token lifetime in seconds |
 | `SYSLOG_PORT` | No | `514` | UDP port the syslog receiver listens on |
 | `POLL_INTERVAL_SECONDS` | No | `60` | How often to poll the UniFi API. Minimum 10 |
-| `LOG_RETENTION_DAYS` | No | `30` | Reserved for future log expiry |
+| `LOG_RETENTION_DAYS` | No | `30` | Initial seed for the firewall-log retention setting |
+| `METRICS_TOKEN` | No | — | Enables `/api/v1/metrics` with this bearer token. Generate with `openssl rand -hex 32` |
 | `MCP_AUTH_TOKEN` | Yes for MCP | — | Long random bearer token required by the MCP server |
 | `MCP_AUTH_DISABLED` | Dev only | `false` | Set `true` only for isolated local MCP development |
 | `MCP_RESOURCE_SERVER_URL` | No | `http://localhost:8001` | Public MCP URL used in protected-resource metadata |
@@ -316,7 +317,7 @@ The scanner container requires `NET_RAW` and `NET_ADMIN` capabilities for SYN sc
 
 ## Optional Features
 
-Both features below are disabled by default. Enable and configure them from the **Settings** page in the dashboard. All settings are stored in the database and take effect within the next poll cycle — no container restart required.
+The CVE and threat-feed collectors below are disabled by default. Enable and configure them from the **Settings** page in the dashboard. All settings are stored in the database and take effect within the next poll cycle — no container restart required.
 
 An optional HTTP proxy URL can be configured in Settings if the host running the stack does not have direct internet access. The proxy applies to all outbound HTTP calls from both collectors.
 
@@ -350,6 +351,46 @@ When enabled, the threat feed collector polls configured IP blocklists and pushe
 - **MISP server** — authenticates to a MISP instance via API key and POSTs to `/attributes/restSearch` to retrieve IP-type indicators (`ip-src`, `ip-dst`, `cidr`, and port variants). Only attributes flagged `to_ids: true` and passing the MISP warninglist are collected. Pagination is handled automatically. MISP sources may target RFC1918-hosted servers (self-hosted MISP is common); loopback, metadata endpoints, and other reserved ranges remain blocked. API keys are stored per-source and are never returned in API responses. An optional "Verify SSL" toggle is provided for self-signed MISP certificates.
 
 **Minimum poll interval is 1 hour.** The default sources (FireHOL Level 1 and Spamhaus DROP) are seeded on first startup but disabled — you must explicitly enable each source from the Threat Feeds page.
+
+### Data Retention
+
+The API prunes old records in 5,000-row batches every six hours to limit database and SD-card growth. Defaults are 30 days for firewall logs and 90 days each for threat events and scan results. Configure each period under **Settings → Data Retention**; set a value to `0` to keep that record type forever. `LOG_RETENTION_DAYS` only seeds the firewall-log value on first startup, so subsequent changes should be made in Settings.
+
+### Notifications
+
+Notifications evaluate the dashboard attention feed every five minutes and send newly active critical findings by default. Select **Critical + warning** in Settings to include warnings. A one-hour flap guard prevents a recently cleared finding from repeatedly notifying if it returns.
+
+- **ntfy:** enter a complete ntfy topic URL such as `https://ntfy.sh/my-private-topic`, or a self-hosted topic such as `http://192.168.1.150:8090/unifi`. Add an access token where the topic requires one.
+- **Generic webhook:** enter an HTTP or HTTPS endpoint. RFC1918 services are supported; loopback, link-local, multicast, reserved and cloud-metadata endpoints are rejected.
+- Use **Send test notification** before enabling the notifier to confirm each configured channel independently.
+
+Webhook requests contain:
+
+```json
+{
+  "severity": "critical",
+  "category": "connectivity",
+  "title": "UniFi console unreachable",
+  "detail": "The dashboard cannot reach the UniFi API. Data shown may be stale.",
+  "link": "/settings",
+  "generated_at": "2026-07-14T10:00:00+00:00"
+}
+```
+
+### Prometheus Metrics
+
+Set `METRICS_TOKEN` to enable `GET /api/v1/metrics`; when it is empty the route returns 404. Scrapes require `Authorization: Bearer <METRICS_TOKEN>`. Metric rendering is cached for 60 seconds so frequent scrapes cannot repeatedly trigger the connectivity and security assessment checks.
+
+```yaml
+scrape_configs:
+  - job_name: unifi-dashboard
+    metrics_path: /api/v1/metrics
+    scheme: https
+    tls_config: { insecure_skip_verify: true }  # self-signed default cert
+    authorization: { credentials: <METRICS_TOKEN> }
+    scrape_interval: 60s
+    static_configs: [{ targets: ["<host-ip>:443"] }]
+```
 
 ---
 

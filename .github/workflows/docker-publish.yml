@@ -99,7 +99,7 @@ jobs:
           scan-type: image
           image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:scan-${{ github.sha }}
           format: table
-          severity: CRITICAL
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
           skip-setup-trivy: true

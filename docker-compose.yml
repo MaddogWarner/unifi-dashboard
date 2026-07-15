@@ -16,6 +16,8 @@ services:
   api:
     build: ./services/api
     image: ghcr.io/maddogwarner/unifi-dashboard/api:latest
+    cap_drop:
+      - ALL
     env_file: .env
     environment:
       POSTGRES_HOST: postgres
@@ -37,6 +39,8 @@ services:
   mcp:
     build: ./services/mcp
     image: ghcr.io/maddogwarner/unifi-dashboard/mcp:latest
+    cap_drop:
+      - ALL
     env_file: .env
     environment:
       API_BASE_URL: http://api:8000

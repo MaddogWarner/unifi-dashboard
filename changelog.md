@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.3.0] - 2026-07-15
+
+### Security
+
+- Moved `api`, `mcp`, and `scanner` from `python:3.12-slim` to multi-stage `python:3.12-alpine`
+  builds, eliminating the Debian base-image CVEs (`perl-base`, `ncurses`, `gzip`, `libacl1`) that
+  had no fixed version available and accounted for 33 open critical/high Trivy alerts (#19).
+- `api` and `mcp` now run as a non-root user (uid 10001) with all capabilities dropped
+  (`cap_drop: ALL`) in compose. `scanner` runs as root — Alpine's `nmap` package has no
+  libcap-ng support, so file capabilities can't substitute for real root on SYN/UDP scans; it
+  still moved off `slim`, so its CVEs are gone too.
+- CI's Trivy image gate now fails on fixable CRITICAL or HIGH findings (previously CRITICAL
+  only), now that all three images scan clean.
+
+### Upgrade notes
+
+- No environment variable, schema, or API changes. Pure infrastructure/Dockerfile change —
+  rebuild images on deploy (`docker compose up --build -d`).
+
 ## [2.2.1] - 2026-07-14
 
 ### Fixed

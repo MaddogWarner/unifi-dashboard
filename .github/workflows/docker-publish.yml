@@ -68,6 +68,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           load: true
           push: false
           tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:scan-${{ github.sha }}
@@ -110,6 +111,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -31,7 +31,10 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./services/frontend
+    build:
+      context: ./services/frontend
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.0-dev}
     image: ghcr.io/maddogwarner/unifi-dashboard/frontend:latest
     depends_on:
       - api

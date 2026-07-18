@@ -1,6 +1,6 @@
 [project]
 name = "unifi-dashboard-mcp"
-version = "2.3.0"
+version = "0.0.0" # placeholder — release version comes from the git tag (see docker-publish.yml)
 requires-python = ">=3.12"
 dependencies = [
   "mcp[cli]>=1.0",

@@ -1,4 +1,5 @@
 FROM python:3.12-alpine AS builder
+ARG APP_VERSION
 
 RUN apk add --no-cache build-base libffi-dev
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.3.1] - 2026-07-19
+
+### Added
+
+- The dashboard footer now displays the running application version, derived from the Git release
+  tag at build time (#30).
+
+### Changed
+
+- The Git release tag is now the single source of truth for the version. Per-service `version`
+  fields (`package.json`, `pyproject.toml`) are inert `0.0.0` placeholders; releases are cut by
+  tagging `vX.Y.Z`, which stamps both the published image tags and the footer.
+
+### Upgrade notes
+
+- No environment variable, schema, or API changes. Rebuild images on deploy
+  (`docker compose up --build -d`).
+
 ## [2.3.0] - 2026-07-15
 
 ### Security

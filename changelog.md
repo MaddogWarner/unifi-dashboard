@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.3.2] - 2026-08-24
+
+### Security
+
+- `react-router` and `react-router-dom` updated in `services/frontend`,
+  closing the advisory affecting the previous range (#34).
+- `postcss` 8.5.15 → 8.5.23 in `services/frontend` (#33).
+- `nanoid` forced to `>=3.3.18` via an npm `overrides` entry, closing a
+  high-severity advisory. It is a transitive dependency of `vite` →
+  `postcss`, so the override is the only way to raise it without waiting
+  upstream. Not declared as a direct dependency, since the application
+  does not import it.
+
+### Changed
+
+- `actions/setup-python` 6 → 7 in CI (#32).
+
+### Upgrade notes
+
+- No environment variable, schema or API changes. Pull the new images and
+  restart (`docker compose pull && docker compose up -d`).
+
 ## [2.3.1] - 2026-07-19
 
 ### Added

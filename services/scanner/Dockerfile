@@ -8,7 +8,8 @@ RUN python -m venv /opt/venv \
 
 FROM python:3.12-alpine
 
-RUN apk add --no-cache nmap
+RUN apk upgrade --no-cache \
+    && apk add --no-cache nmap
 
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1

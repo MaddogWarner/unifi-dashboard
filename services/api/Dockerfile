@@ -11,6 +11,8 @@ RUN python -m venv /opt/venv \
 
 FROM python:3.12-alpine
 
+RUN apk upgrade --no-cache
+
 RUN addgroup -S app \
     && adduser -S -G app -u 10001 app
 

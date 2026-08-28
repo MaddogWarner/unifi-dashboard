@@ -9,7 +9,7 @@ COPY app ./app
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir .
 
-FROM python:3.12-alpine
+FROM python:3.12-alpine AS runtime
 
 RUN apk upgrade --no-cache
 

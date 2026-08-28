@@ -6,7 +6,7 @@ RUN apk add --no-cache build-base libffi-dev
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir fastapi uvicorn pydantic
 
-FROM python:3.12-alpine
+FROM python:3.12-alpine AS runtime
 
 RUN apk upgrade --no-cache \
     && apk add --no-cache nmap

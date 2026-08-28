@@ -75,6 +75,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          # Never cache the runtime stage: it runs `apk upgrade`, and a cached
+          # layer replays stale packages, so a patched base would be missed.
+          no-cache-filters: runtime
 
       # SARIF scan is report-only: trivy-action scans all severities for SARIF,
       # so gating happens in the table-format step below instead.
@@ -117,3 +120,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          # Never cache the runtime stage: it runs `apk upgrade`, and a cached
+          # layer replays stale packages, so a patched base would be missed.
+          no-cache-filters: runtime

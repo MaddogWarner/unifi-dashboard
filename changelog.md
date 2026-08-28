@@ -1,8 +1,18 @@
 # Changelog
 
-## [2.3.2] - 2026-08-24
+## [2.3.2] - 2026-08-29
 
 ### Security
+
+- `openssl`, `libcrypto3` and `libssl3` raised from 3.5.7-r0 to 3.5.8-r0.
+  `api`, `mcp` and `scanner` never refreshed base packages, so they shipped
+  whatever `python:3.12-alpine` carried; they now run `apk upgrade` like
+  `frontend` already did (#36).
+- The runtime stage is excluded from the build cache. `frontend` already ran
+  `apk upgrade`, but a cached layer replayed packages from before the openssl
+  fix, so the upgrade had no effect. Both the scan build and the push build
+  skip the cache for that stage, which also guarantees the image that is
+  pushed is the one that was scanned (#36).
 
 - `react-router` and `react-router-dom` updated in `services/frontend`,
   closing the advisory affecting the previous range (#34).

@@ -4,11 +4,14 @@ ARG APP_VERSION
 RUN apk add --no-cache build-base libffi-dev
 
 RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir fastapi uvicorn pydantic
+    && /opt/venv/bin/python -m pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/python -m pip install --no-cache-dir fastapi uvicorn pydantic \
+    && /opt/venv/bin/python -m pip uninstall -y pip
 
 FROM python:3.12-alpine AS runtime
 
-RUN apk upgrade --no-cache \
+RUN /usr/local/bin/python -m pip uninstall -y pip \
+    && apk upgrade --no-cache \
     && apk add --no-cache nmap
 
 WORKDIR /app

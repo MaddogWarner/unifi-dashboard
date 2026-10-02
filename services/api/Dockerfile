@@ -7,11 +7,14 @@ WORKDIR /app
 COPY pyproject.toml .
 COPY app ./app
 RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir .
+    && /opt/venv/bin/python -m pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/python -m pip install --no-cache-dir . \
+    && /opt/venv/bin/python -m pip uninstall -y pip
 
 FROM python:3.12-alpine AS runtime
 
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache \
+    && /usr/local/bin/python -m pip uninstall -y pip
 
 RUN addgroup -S app \
     && adduser -S -G app -u 10001 app

@@ -12,11 +12,32 @@ from app.models.firewall import FirewallLog, FirewallPolicy
 log = logging.getLogger(__name__)
 
 _RULE_RE = re.compile(r"\[([A-Za-z0-9_\-]+?)-(A|D|R)\]")
-_FIELD_RE = re.compile(
-    r"(?:.*IN=(?P<iface>[^\s]*))?.*SRC=(?P<src>[^\s]+).*DST=(?P<dst>[^\s]+).*"
-    r"PROTO=(?P<proto>[^\s]+)(?:.*SPT=(?P<spt>\d+))?(?:.*DPT=(?P<dpt>\d+))?",
-    re.DOTALL,
-)
+MAX_DATAGRAM_BYTES = 4096
+
+
+def _parse_fields(line: str) -> dict[str, str | None] | None:
+    # One pass over whitespace-delimited fields; duplicate keys consistently use
+    # the last value. UniFi can attach IN= directly to the closing rule marker.
+    fields: dict[str, str] = {}
+    for token in line.split():
+        key, separator, value = token.partition("=")
+        key = key.rpartition("]")[2]
+        if separator and key in {"IN", "SRC", "DST", "PROTO", "SPT", "DPT"}:
+            fields[key] = value
+    if not all(fields.get(key) for key in ("SRC", "DST", "PROTO")):
+        return None
+    result: dict[str, str | None] = {
+        "iface": fields.get("IN"),
+        "src": fields["SRC"],
+        "dst": fields["DST"],
+        "proto": fields["PROTO"],
+    }
+    for key, name in (("SPT", "spt"), ("DPT", "dpt")):
+        value = fields.get(key, "")
+        # Strip leading zeroes and bound the digit count before integer conversion.
+        digits = value.lstrip("0") or "0"
+        result[name] = digits if value.isdecimal() and len(digits) <= 5 and int(digits) <= 65535 else None
+    return result
 
 
 class SyslogProtocol(asyncio.DatagramProtocol):
@@ -27,6 +48,9 @@ class SyslogProtocol(asyncio.DatagramProtocol):
 
     def datagram_received(self, data: bytes, addr: tuple) -> None:
         self.received_count += 1
+        if len(data) > MAX_DATAGRAM_BYTES:
+            self._log_unparsed("oversize", f"{len(data)} bytes")
+            return
         line = data.decode("utf-8", errors="replace").strip()
         if self.received_count == 1:
             log.info("Received first syslog datagram from %s:%s", addr[0], addr[1])
@@ -37,27 +61,26 @@ class SyslogProtocol(asyncio.DatagramProtocol):
         if not rule_match:
             self._log_unparsed("rule marker", line)
             return
-        field_match = _FIELD_RE.search(line)
-        if not field_match:
+        fields = _parse_fields(line)
+        if fields is None:
             self._log_unparsed("IP/port fields", line)
             return
+        src_port, dst_port = fields["spt"], fields["dpt"]
         rule_name, action = rule_match.group(1), rule_match.group(2)
         async with async_session_factory() as session:
             async with session.begin():
-                policy_id = await session.scalar(
-                    select(FirewallPolicy.id).where(FirewallPolicy.name == rule_name)
-                )
+                policy_id = await session.scalar(select(FirewallPolicy.id).where(FirewallPolicy.name == rule_name))
                 session.add(
                     FirewallLog(
                         timestamp=datetime.now(UTC),
                         rule_name=rule_name,
                         action=action,
-                        src_ip=field_match.group("src"),
-                        dst_ip=field_match.group("dst"),
-                        src_port=int(field_match.group("spt")) if field_match.group("spt") else None,
-                        dst_port=int(field_match.group("dpt")) if field_match.group("dpt") else None,
-                        protocol=field_match.group("proto"),
-                        interface=field_match.group("iface"),
+                        src_ip=fields["src"],
+                        dst_ip=fields["dst"],
+                        src_port=int(src_port) if src_port else None,
+                        dst_port=int(dst_port) if dst_port else None,
+                        protocol=fields["proto"],
+                        interface=fields["iface"],
                         direction=None,
                         matched_policy_id=policy_id,
                         raw_line=line,

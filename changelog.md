@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.3.3] - 10/10/2026
+
+### Security
+
+- Syslog firewall-log parsing is now linear-time and datagram size is capped (GHSA-rvr9-5qp4-jwf6).
+
 ## [2.3.2] - 2026-08-29
 
 ### Security

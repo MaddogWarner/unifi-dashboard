@@ -138,6 +138,14 @@ export type FirewallLogParams = {
   from_ts?: string;
 };
 
+export type FirewallLogSummary = {
+  total: number;
+  blocked: number;
+  top_sources: Array<{ ip: string; count: number }>;
+  top_ports: Array<{ port: number; protocol: string | null; count: number }>;
+  top_rules: Array<{ rule_name: string; count: number }>;
+};
+
 export type FirewallRule = {
   id: number;
   unifi_id: string;
@@ -408,14 +416,19 @@ export const del = <T>(path: string) => send<T>("DELETE", path);
 
 export const getFirewallPolicies = () => get<FirewallPolicy[]>("/firewall/policies");
 export const getFirewallRules = () => get<FirewallRule[]>("/firewall/rules");
-export const getFirewallLogs = (params: FirewallLogParams = {}) => {
+function queryString(params: object) {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== "") search.set(key, String(value));
   });
   const query = search.toString();
-  return get<FirewallLog[]>(`/firewall/logs${query ? `?${query}` : ""}`);
-};
+  return query ? `?${query}` : "";
+}
+
+export const getFirewallLogs = (params: FirewallLogParams = {}) =>
+  get<FirewallLog[]>(`/firewall/logs${queryString(params)}`);
+export const getFirewallLogSummary = (params: Omit<FirewallLogParams, "skip" | "limit"> = {}) =>
+  get<FirewallLogSummary>(`/firewall/logs/summary${queryString(params)}`);
 export const getThreats = () => get<ThreatEvent[]>("/threats/events");
 export const getIdsStatus = () => get<IdsStatus>("/threats/ids-status");
 export type UnifiZone = { id: string | null; name: string };

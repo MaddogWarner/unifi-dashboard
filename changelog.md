@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.6.0] - 15/11/2026
+
+### Added
+
+- Firewall Logs: filters are stored in the URL, so reloads, back/forward and
+  copied links reproduce the view. Active filters show as removable chips.
+- Click a source or destination IP to filter on it; copy buttons for IPs, rule
+  names and the raw log line.
+- Event details open in an accessible side drawer (focus trap, Esc to close,
+  focus returns to the row) instead of expanding inline.
+- Summary strip with event totals and the top blocked sources, ports and rules;
+  sources and rules apply as filters.
+- `GET /api/v1/firewall/logs/summary` (read-only; same filters as `/logs`).
+
+### Changed
+
+- On phones the log table becomes stacked rows with no horizontal scrolling.
+- Distinct empty states for "no events yet" and "no events match these filters".
+- Logs page moved to the semantic colour tokens.
+
+### Upgrade notes
+
+- No environment variable or schema changes. Pull the new images and restart
+  (`docker compose pull && docker compose up -d`).
+
 ## [2.5.0] - 15/11/2026
 
 ### Changed

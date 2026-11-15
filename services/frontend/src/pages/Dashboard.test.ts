@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { olderThan24h, scoreTone } from "./Dashboard";
+import type { AttentionItem } from "../lib/api";
+import { groupBySeverity, olderThan24h, scoreTone } from "./Dashboard";
 
 describe("scoreTone", () => {
   it.each([
@@ -25,5 +26,28 @@ describe("olderThan24h", () => {
     const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
     expect(olderThan24h(hoursAgo(25))).toBe(true);
     expect(olderThan24h(hoursAgo(23))).toBe(false);
+  });
+});
+
+describe("groupBySeverity", () => {
+  const item = (severity: AttentionItem["severity"], title: string): AttentionItem => ({
+    severity,
+    category: "assessment",
+    title,
+    detail: "",
+    link: "/",
+    timestamp: null
+  });
+
+  it("orders groups critical, warning, info and omits empty ones", () => {
+    const groups = groupBySeverity([item("info", "c"), item("critical", "a"), item("info", "d")]);
+    expect(groups.map((g) => [g.severity, g.items.length])).toEqual([
+      ["critical", 1],
+      ["info", 2]
+    ]);
+  });
+
+  it("returns no groups for no items", () => {
+    expect(groupBySeverity([])).toEqual([]);
   });
 });

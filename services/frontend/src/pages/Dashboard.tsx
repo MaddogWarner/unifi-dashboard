@@ -3,32 +3,22 @@ import { Activity, RefreshCw, ScrollText, ShieldCheck, Wifi } from "lucide-react
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { Badge } from "../components/Badge";
+import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { PageHeader } from "../components/PageHeader";
+import { Skeleton } from "../components/Skeleton";
 import { StatusCard } from "../components/StatusCard";
 import type { AttentionItem, DashboardStatus } from "../lib/api";
 import { getDashboardAttention } from "../lib/api";
-import { PageHeader } from "../components/PageHeader";
-import { Skeleton } from "../components/Skeleton";
+import { formatTimestamp, relativeTime } from "../lib/format";
 
 type Tone = "neutral" | "good" | "warn" | "bad";
+type Severity = AttentionItem["severity"];
 
-const severityClasses = {
-  critical: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300",
-  warning: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  info: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300"
-};
-
-function formatTimestamp(value: string | null) {
-  if (!value) return null;
-  return new Date(value).toLocaleString("en-AU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
-}
+const severityOrder: Severity[] = ["critical", "warning", "info"];
+const severityBadge = { critical: "danger", warning: "warning", info: "neutral" } as const;
+const severityLabel = { critical: "Critical", warning: "Warning", info: "Info" };
 
 export function olderThan24h(value: string | null) {
   if (!value) return false;
@@ -40,6 +30,12 @@ export function scoreTone(score: number | null): Tone {
   if (score >= 80) return "good";
   if (score >= 50) return "warn";
   return "bad";
+}
+
+export function groupBySeverity(items: AttentionItem[]) {
+  return severityOrder
+    .map((severity) => ({ severity, items: items.filter((item) => item.severity === severity) }))
+    .filter((group) => group.items.length > 0);
 }
 
 function statusCards(status: DashboardStatus | undefined) {
@@ -59,13 +55,15 @@ function statusCards(status: DashboardStatus | undefined) {
     {
       icon: RefreshCw,
       label: "Last sync",
-      value: status ? (formatTimestamp(status.last_policy_sync) ?? "Never") : "–",
+      value: status ? (relativeTime(status.last_policy_sync) ?? "Never") : "–",
+      hint: formatTimestamp(status?.last_policy_sync ?? null) ?? undefined,
       tone: status ? (status.last_policy_sync ? "neutral" : "warn") : "neutral"
     },
     {
       icon: ScrollText,
       label: "Syslog",
-      value: status ? (formatTimestamp(status.last_syslog_event) ?? "No events") : "–",
+      value: status ? (relativeTime(status.last_syslog_event) ?? "No events") : "–",
+      hint: formatTimestamp(status?.last_syslog_event ?? null) ?? undefined,
       tone: status && (!status.last_syslog_event || olderThan24h(status.last_syslog_event)) ? "warn" : "neutral"
     },
     {
@@ -78,20 +76,9 @@ function statusCards(status: DashboardStatus | undefined) {
     icon: LucideIcon;
     label: string;
     value: string | number;
+    hint?: string;
     tone: Tone;
   }>;
-}
-
-function capitalise(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function SeverityChip({ severity }: { severity: AttentionItem["severity"] }) {
-  return (
-    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${severityClasses[severity]}`}>
-      {capitalise(severity)}
-    </span>
-  );
 }
 
 function itemCountLabel(count: number) {
@@ -105,10 +92,32 @@ export function Dashboard() {
     refetchInterval: 60_000
   });
   const items = attention.data?.items ?? [];
+  const groups = groupBySeverity(items);
+  const updated = relativeTime(attention.data?.generated_at ?? null);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="What needs your attention across the network." />
+      <PageHeader
+        title="Dashboard"
+        description="What needs your attention across the network."
+        actions={
+          <div className="flex items-center gap-3">
+            {updated ? (
+              <span className="text-xs text-fg-muted" title={formatTimestamp(attention.data?.generated_at ?? null) ?? undefined}>
+                Updated {updated}
+              </span>
+            ) : null}
+            <Button
+              className="inline-flex items-center gap-2"
+              disabled={attention.isFetching}
+              onClick={() => void attention.refetch()}
+            >
+              <RefreshCw aria-hidden className={`h-4 w-4 ${attention.isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+        }
+      />
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
         {statusCards(attention.data?.status).map((card) => (
@@ -117,6 +126,7 @@ export function Dashboard() {
             icon={card.icon}
             label={card.label}
             value={card.value}
+            hint={card.hint}
             tone={card.tone}
           />
         ))}
@@ -124,7 +134,7 @@ export function Dashboard() {
 
       <Card
         title="Needs attention"
-        action={attention.data ? <span className="text-sm text-slate-500 dark:text-slate-400">{itemCountLabel(items.length)}</span> : null}
+        action={attention.data ? <span className="text-sm text-fg-muted">{itemCountLabel(items.length)}</span> : null}
       >
         {attention.isLoading ? (
           <div className="space-y-3" role="status" aria-label="Loading">
@@ -133,36 +143,44 @@ export function Dashboard() {
             <Skeleton className="h-12" />
           </div>
         ) : attention.error ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
+          <div className="rounded-md bg-danger-bg p-4 text-sm text-danger-fg">
             Dashboard attention feed failed: {attention.error.message}
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+          <div className="rounded-md bg-success-bg p-4 text-sm font-medium text-success-fg">
             All clear — nothing needs attention.
           </div>
         ) : (
-          <div className="-mx-4 -mb-4 divide-y divide-slate-100 dark:divide-slate-800">
-            {items.map((item, index) => (
-              <Link
-                key={`${item.category}-${item.title}-${index}`}
-                to={item.link}
-                className="flex flex-col gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 sm:flex-row sm:items-start sm:justify-between"
-              >
-                <div className="flex min-w-0 gap-3">
-                  <div className="shrink-0 pt-0.5">
-                    <SeverityChip severity={item.severity} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-brand-700 dark:text-brand-300">{item.title}</p>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{item.detail}</p>
-                  </div>
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <section key={group.severity} aria-label={`${severityLabel[group.severity]} items`}>
+                <div className="mb-1 flex items-center gap-2">
+                  <Badge tone={severityBadge[group.severity]}>{severityLabel[group.severity]}</Badge>
+                  <span className="text-xs text-fg-muted">{itemCountLabel(group.items.length)}</span>
                 </div>
-                {item.timestamp && (
-                  <span className="shrink-0 text-left text-xs text-slate-500 dark:text-slate-400 sm:text-right">
-                    {formatTimestamp(item.timestamp)}
-                  </span>
-                )}
-              </Link>
+                <div className="-mx-4 divide-y divide-line">
+                  {group.items.map((item, index) => (
+                    <Link
+                      key={`${item.category}-${item.title}-${index}`}
+                      to={item.link}
+                      className="flex flex-col gap-1 px-4 py-3 hover:bg-hover sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-brand-ink">{item.title}</p>
+                        <p className="mt-1 text-sm text-fg-muted">{item.detail}</p>
+                      </div>
+                      {item.timestamp && (
+                        <span
+                          className="shrink-0 text-left text-xs text-fg-muted sm:text-right"
+                          title={formatTimestamp(item.timestamp) ?? undefined}
+                        >
+                          {relativeTime(item.timestamp)}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}

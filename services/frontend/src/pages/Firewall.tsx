@@ -5,6 +5,7 @@ import { LogsTab } from "./firewall/LogsTab";
 import { NetworksTab } from "./firewall/NetworksTab";
 import { OverviewTab } from "./firewall/OverviewTab";
 import { PoliciesTab } from "./firewall/PoliciesTab";
+import { PageHeader } from "../components/PageHeader";
 
 const tabs = [
   { id: "overview", label: "Overview" },
@@ -32,12 +33,7 @@ export function Firewall() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Firewall</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Zone policies, legacy rules, and syslog-matched firewall events.
-        </p>
-      </header>
+      <PageHeader title="Firewall" description="Zone policies, legacy rules, and syslog-matched firewall events." />
       <PageTabs tabs={tabs} active={activeTab} onChange={handleTabChange} />
       {activeTab === "overview" ? <OverviewTab onMatrixSelect={handleMatrixSelect} /> : null}
       {activeTab === "policies" ? <PoliciesTab /> : null}

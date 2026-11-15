@@ -4,6 +4,7 @@ import { PageTabs } from "../components/PageTabs";
 import { CveTab } from "./threats/CveTab";
 import { EventsTab } from "./threats/EventsTab";
 import { FeedsTab } from "./threats/FeedsTab";
+import { PageHeader } from "../components/PageHeader";
 
 const tabs = [
   { id: "events", label: "Events" },
@@ -26,12 +27,7 @@ export function Threats() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Threats</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          IDS/IPS posture, vulnerability alerts, and external blocklist enforcement.
-        </p>
-      </header>
+      <PageHeader title="Threats" description="IDS/IPS posture, vulnerability alerts, and external blocklist enforcement." />
       <PageTabs tabs={tabs} active={activeTab} onChange={handleTabChange} />
       {activeTab === "events" ? <EventsTab /> : null}
       {activeTab === "cve" ? <CveTab /> : null}

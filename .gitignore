@@ -20,3 +20,7 @@ certs/*.pem
 # Screenshot working files
 screenshots/*-raw.png
 capture_screenshots.js
+
+# Playwright output
+test-results/
+playwright-report/

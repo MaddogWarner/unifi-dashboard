@@ -45,8 +45,8 @@ export function NavBar({ alert }: { alert: boolean }) {
         className={({ isActive }) =>
           `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
             isActive
-              ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
-              : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              ? "bg-brand-soft text-brand-ink"
+              : "text-fg-muted hover:bg-hover"
           }`
         }
       >
@@ -56,12 +56,16 @@ export function NavBar({ alert }: { alert: boolean }) {
     ));
 
   return (
-    <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <header className="border-b border-line bg-surface">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-        <div className="flex items-center gap-2 font-semibold text-slate-950 dark:text-slate-50">
+        <div className="flex items-center gap-2 font-semibold text-fg">
           <ListChecks className="h-5 w-5 text-brand-600" />
           <span>UniFi Security Dashboard</span>
-          {alert ? <span className="h-2 w-2 rounded-full bg-rose-500" title="Assessment or drift alert" /> : null}
+          {alert ? (
+            <span className="h-2 w-2 rounded-full bg-rose-500" title="Assessment or drift alert">
+              <span className="sr-only">Assessment or drift alert</span>
+            </span>
+          ) : null}
         </div>
         <nav className="hidden flex-wrap gap-1 md:flex">
           {renderLinks()}
@@ -87,7 +91,7 @@ export function NavBar({ alert }: { alert: boolean }) {
         </Button>
       </div>
       {mobileOpen ? (
-        <div id="mobile-navigation" className="border-t border-slate-200 px-4 py-3 dark:border-slate-800 md:hidden">
+        <div id="mobile-navigation" className="border-t border-line px-4 py-3 md:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1">
             {renderLinks(true)}
             <Button type="button" onClick={handleLogout} className="mt-2 inline-flex items-center gap-2">

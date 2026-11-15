@@ -182,7 +182,7 @@ Copy `.env.example` to `.env` and set the values below.
 | `POLL_INTERVAL_SECONDS` | No | `60` | How often to poll the UniFi API. Minimum 10 |
 | `LOG_RETENTION_DAYS` | No | `30` | Initial seed for the firewall-log retention setting |
 | `METRICS_TOKEN` | No | — | Enables `/api/v1/metrics` with this bearer token. Generate with `openssl rand -hex 32` |
-| `MCP_AUTH_TOKEN` | Yes for MCP | — | Long random bearer token required by the MCP server |
+| `MCP_AUTH_TOKEN` | Yes for MCP | — | Long random bearer token required by the MCP server. The `mcp` container exits on start until this is set to a real value (not the `.env.example` placeholder) |
 | `MCP_AUTH_DISABLED` | Dev only | `false` | Set `true` only for isolated local MCP development |
 | `MCP_RESOURCE_SERVER_URL` | No | `http://localhost:8001` | Public MCP URL used in protected-resource metadata |
 | `VITE_API_URL` | Dev only | `http://localhost:8000` | Frontend dev proxy target. Not used in the Docker Compose stack |

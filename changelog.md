@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.3.4] - 15/11/2026
+
+### Security
+
+- `GET`/`PUT /api/v1/settings` no longer return `unifi.api_key` in plaintext.
+  `notifications.webhook_url` and `http_proxy.url` (which can embed secrets or
+  credentials) are masked too, alongside the existing `notifications.ntfy_token`
+  mask. Saving the Settings form with an untouched masked field keeps the stored
+  value.
+
+### Documentation
+
+- README and `.env.example` now state that the `mcp` container exits on start
+  until `MCP_AUTH_TOKEN` is set to a real value.
+
+### Upgrade notes
+
+- No environment variable or schema changes. Pull the new images and restart
+  (`docker compose pull && docker compose up -d`). Existing secrets are
+  unaffected; they simply display as `********` in the Settings page.
+
 ## [2.3.3] - 10/10/2026
 
 ### Security

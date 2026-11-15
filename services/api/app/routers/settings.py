@@ -14,7 +14,12 @@ from app.models.user import User
 from app.schemas.settings import SettingsUpdate
 
 router = APIRouter()
-SECRET_SETTINGS = {"notifications.ntfy_token"}
+SECRET_SETTINGS = {
+    "unifi.api_key",
+    "notifications.ntfy_token",
+    "notifications.webhook_url",
+    "http_proxy.url",
+}
 SECRET_MASK = "********"
 
 VALID_SETTINGS = {
@@ -59,6 +64,8 @@ def _validate_settings(settings: dict[str, str]) -> None:
     unknown = set(settings) - VALID_SETTINGS
     if unknown:
         raise HTTPException(400, f"Unknown setting key: {', '.join(sorted(unknown))}")
+    # A round-tripped mask is discarded by update_settings, so it must not be validated as a real value.
+    settings = {key: value for key, value in settings.items() if not _preserve_secret(key, value)}
     if "unifi.host" in settings:
         val = settings["unifi.host"]
         if not val:

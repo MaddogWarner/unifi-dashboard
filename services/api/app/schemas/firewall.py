@@ -81,3 +81,27 @@ class DriftLatestOut(BaseModel):
     latest_snapshot: PolicySnapshotOut | None
     previous_snapshot: PolicySnapshotOut | None
     diff: DriftDiffOut | None
+
+
+class TopSource(BaseModel):
+    ip: str
+    count: int
+
+
+class TopPort(BaseModel):
+    port: int
+    protocol: str | None
+    count: int
+
+
+class TopRule(BaseModel):
+    rule_name: str
+    count: int
+
+
+class FirewallLogSummary(BaseModel):
+    total: int
+    blocked: int
+    top_sources: list[TopSource]
+    top_ports: list[TopPort]
+    top_rules: list[TopRule]

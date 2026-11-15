@@ -1,4 +1,4 @@
-export function formatTimestamp(value: string | null) {
+export function formatTimestamp(value: string | null, withSeconds = false) {
   if (!value) return null;
   return new Date(value).toLocaleString("en-AU", {
     day: "2-digit",
@@ -6,6 +6,7 @@ export function formatTimestamp(value: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
     hour12: false
   });
 }

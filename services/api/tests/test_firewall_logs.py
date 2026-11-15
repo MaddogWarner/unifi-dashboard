@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.database import Base
 from app.models.firewall import FirewallLog
-from app.routers.firewall import list_logs
+from app.routers.firewall import list_logs, logs_summary
 
 BASE_TIME = datetime(2026, 7, 6, 2, 0, tzinfo=UTC)
 
@@ -126,3 +126,74 @@ def test_list_logs_applies_skip_and_limit_paging() -> None:
 
     assert [log.rule_name for log in logs] == ["Block Guest", "Block Guest"]
     assert [log.dst_ip for log in logs] == ["192.168.1.11", "192.168.1.10"]
+
+
+async def _summary(rows: list[FirewallLog] | None = None, **params: object):
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_factory() as session:
+            session.add_all(_rows() if rows is None else rows)
+            await session.commit()
+            return await logs_summary(db=session, **params)
+    finally:
+        await engine.dispose()
+
+
+def test_summary_counts_and_top_lists_cover_blocked_events_only() -> None:
+    summary = asyncio.run(_summary())
+
+    assert summary.total == 4
+    assert summary.blocked == 3
+    assert [(s.ip, s.count) for s in summary.top_sources] == [
+        ("192.168.20.15", 2),
+        ("192.168.30.25", 1),
+    ]
+    assert [(r.rule_name, r.count) for r in summary.top_rules] == [("Block Guest", 2), ("Reject IoT", 1)]
+    assert [(p.port, p.count) for p in summary.top_ports] == [(22, 1), (443, 1), (445, 1)]
+
+
+def test_summary_applies_filters() -> None:
+    summary = asyncio.run(_summary(src_ip="192.168.20.15"))
+
+    assert (summary.total, summary.blocked) == (2, 2)
+    assert [r.rule_name for r in summary.top_rules] == ["Block Guest"]
+
+
+def test_summary_respects_from_ts_bound() -> None:
+    summary = asyncio.run(_summary(from_ts=BASE_TIME - timedelta(minutes=15)))
+
+    assert (summary.total, summary.blocked) == (2, 2)
+
+
+def test_summary_of_nothing_is_zeros_and_empty_lists() -> None:
+    summary = asyncio.run(_summary(rows=[]))
+
+    assert summary.model_dump() == {
+        "total": 0,
+        "blocked": 0,
+        "top_sources": [],
+        "top_ports": [],
+        "top_rules": [],
+    }
+
+
+def test_summary_breaks_count_ties_deterministically_and_limits_to_five() -> None:
+    rows = [
+        FirewallLog(
+            timestamp=BASE_TIME,
+            rule_name=f"Rule {i}",
+            action="drop",
+            src_ip=f"10.0.0.{i}",
+            dst_ip="192.168.1.1",
+            dst_port=1000 + i,
+            protocol="TCP",
+            raw_line="x",
+        )
+        for i in range(7, 0, -1)
+    ]
+    summary = asyncio.run(_summary(rows=rows))
+
+    assert [s.ip for s in summary.top_sources] == ["10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5"]

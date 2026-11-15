@@ -421,6 +421,7 @@ All endpoints are under `/api/v1/` and proxied through nginx.
 | `/api/v1/firewall/policies` | GET | Zone-based policies with hit counts |
 | `/api/v1/firewall/rules` | GET | Legacy firewall rules with hit counts |
 | `/api/v1/firewall/logs` | GET | Paginated syslog firewall events (filter: src_ip, rule_name) |
+| `/api/v1/firewall/logs/summary` | GET | Event totals plus top blocked sources, ports and rules (same filters as `/logs`) |
 | `/api/v1/firewall/zones` | GET | Zones with assigned networks |
 | `/api/v1/threats/events` | GET | IDS/IPS threat events |
 | `/api/v1/threats/ids-status` | GET | IDS/IPS config + gap analysis |

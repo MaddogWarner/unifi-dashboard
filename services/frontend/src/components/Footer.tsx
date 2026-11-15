@@ -1,4 +1,5 @@
-import { ExternalLink, Github } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { GithubIcon } from "./icons/GithubIcon";
 
 export function Footer() {
   const version = import.meta.env.VITE_APP_VERSION;
@@ -23,7 +24,7 @@ export function Footer() {
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 hover:text-brand-ink"
           >
-            <Github className="h-3.5 w-3.5" />
+            <GithubIcon className="h-3.5 w-3.5" />
             MaddogWarner
           </a>
         </div>

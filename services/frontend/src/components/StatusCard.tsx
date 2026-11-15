@@ -5,6 +5,7 @@ type Props = {
   label: string;
   value: string | number;
   tone?: "neutral" | "good" | "warn" | "bad";
+  hint?: string;
 };
 
 const tones = {
@@ -14,7 +15,7 @@ const tones = {
   bad: "bg-danger-bg text-danger-fg"
 };
 
-export function StatusCard({ icon: Icon, label, value, tone = "neutral" }: Props) {
+export function StatusCard({ icon: Icon, label, value, tone = "neutral", hint }: Props) {
   return (
     <div className="min-w-0 rounded-lg border border-line bg-surface p-4 shadow-sm">
       <div className="flex items-center gap-3">
@@ -23,7 +24,7 @@ export function StatusCard({ icon: Icon, label, value, tone = "neutral" }: Props
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-fg-muted">{label}</p>
-          <p className="mt-1 break-normal text-xl font-semibold leading-tight text-fg tabular-nums md:text-2xl">{value}</p>
+          <p title={hint} className="mt-1 break-normal text-lg font-semibold leading-tight sm:text-xl text-fg tabular-nums md:text-2xl">{value}</p>
         </div>
       </div>
     </div>

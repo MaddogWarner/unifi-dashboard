@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.5.0] - 15/11/2026
+
+### Changed
+
+- Dashboard: sync and syslog times show relative ("10 min ago") with the exact
+  time on hover; a "last updated" label and Refresh button; attention items are
+  grouped by severity (critical, warning, info) with counts.
+- Assessment: score ring with pass/warn/fail counts; failing and warning checks
+  listed first, passing checks collapsed; history chart themed for dark mode;
+  check icon colours now work in dark mode.
+- Status card values are one size smaller on narrow screens so "Connected" no
+  longer touches the card edge.
+
+### Added
+
+- `ScoreRing` component, relative-time helpers and a Playwright spec for the
+  dashboard and assessment pages (46 unit tests in total).
+
+### Upgrade notes
+
+- Frontend only; no environment variable, schema or API changes. Pull the new
+  images and restart (`docker compose pull && docker compose up -d`).
+
 ## [2.4.0] - 15/11/2026
 
 ### Added

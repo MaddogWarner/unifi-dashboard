@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.4.0] - 15/11/2026
+
+### Added
+
+- Frontend test baseline: Vitest, Testing Library and jsdom with 28 unit tests,
+  and a Playwright smoke test covering every route at desktop and mobile widths
+  (advisory `e2e` CI job). CI no longer passes with zero frontend tests.
+- Semantic light/dark colour tokens, so components define a colour once instead
+  of pairing light and dark classes. Core components (card, button, status card,
+  nav bar, tabs, footer) are migrated; the rest follow.
+- `PageHeader`, `Badge`, `EmptyState` and `Skeleton` components. All pages use
+  `PageHeader`, and the dashboard shows skeletons while loading.
+
+### Changed
+
+- Inter is now self-hosted (`@fontsource-variable/inter`) rather than relying on
+  a system fallback; no external font requests, so the CSP is unchanged.
+- Page tabs expose `tablist`/`tab`/`aria-selected`, and the nav alert dot has
+  screen-reader text.
+
+### Removed
+
+- Unused `tailwind.config.ts` (ignored by Tailwind v4).
+
+### Upgrade notes
+
+- No environment variable, schema or API changes. Pull the new images and
+  restart (`docker compose pull && docker compose up -d`).
+
 ## [2.3.4] - 15/11/2026
 
 ### Security

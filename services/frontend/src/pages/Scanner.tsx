@@ -5,6 +5,7 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { getScanResult, triggerScan } from "../lib/api";
 import type { ScanResult } from "../lib/api";
+import { PageHeader } from "../components/PageHeader";
 
 const fieldClass =
   "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
@@ -43,12 +44,7 @@ export function Scanner() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Scanner</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          RFC1918-only validation scans for firewall rule checks.
-        </p>
-      </header>
+      <PageHeader title="Scanner" description="RFC1918-only validation scans for firewall rule checks." />
       <Card>
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-[1fr_1fr_160px_auto]">
           <input className={fieldClass} value={target} onChange={(event) => setTarget(event.target.value)} aria-label="Target IP" />

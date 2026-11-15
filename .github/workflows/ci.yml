@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install dependencies
         run: npm ci
         working-directory: services/frontend
@@ -48,5 +48,24 @@ jobs:
         run: npm run build
         working-directory: services/frontend
       - name: Unit tests
-        run: npm test -- --run --passWithNoTests
+        run: npm test -- --run
+        working-directory: services/frontend
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    continue-on-error: true # advisory until the suite has proven stable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci
+        working-directory: services/frontend
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: services/frontend
+      - name: Smoke tests
+        run: npx playwright test
         working-directory: services/frontend

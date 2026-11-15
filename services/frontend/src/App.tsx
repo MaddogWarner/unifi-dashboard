@@ -59,7 +59,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
+    <div className="flex min-h-screen flex-col bg-surface-muted">
       <NavBar alert={alert} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
         <Routes>

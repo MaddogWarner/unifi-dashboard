@@ -11,16 +11,18 @@ type Props = {
 
 export function PageTabs({ tabs, active, onChange }: Props) {
   return (
-    <div className="flex flex-wrap gap-4 border-b border-slate-200 dark:border-slate-800">
+    <div role="tablist" className="flex flex-wrap gap-4 border-b border-line">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
+          role="tab"
+          aria-selected={active === tab.id}
           onClick={() => onChange(tab.id)}
-          className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${
+          className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-muted ${
             active === tab.id
-              ? "border-brand-600 text-brand-700 dark:text-brand-300"
-              : "border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              ? "border-brand-600 text-brand-ink"
+              : "border-transparent text-fg-muted hover:text-fg"
           }`}
         >
           {tab.label}

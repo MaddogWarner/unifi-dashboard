@@ -4,6 +4,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { CheckCircle2, CircleAlert, CircleX } from "lucide-react";
 import { Card } from "../components/Card";
 import { getAssessment, getAssessmentHistory } from "../lib/api";
+import { PageHeader } from "../components/PageHeader";
 
 export function Assessment() {
   const assessment = useQuery({ queryKey: ["assessment"], queryFn: getAssessment });
@@ -18,12 +19,7 @@ export function Assessment() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Security Assessment</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Scored checks, evidence, and remediation guidance.
-        </p>
-      </header>
+      <PageHeader title="Security Assessment" description="Scored checks, evidence, and remediation guidance." />
       <Card title="Current score">
         <p className="text-4xl font-semibold text-brand-700 dark:text-brand-300">{assessment.data?.score ?? "-"}%</p>
       </Card>

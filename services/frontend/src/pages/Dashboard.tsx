@@ -7,6 +7,8 @@ import { Card } from "../components/Card";
 import { StatusCard } from "../components/StatusCard";
 import type { AttentionItem, DashboardStatus } from "../lib/api";
 import { getDashboardAttention } from "../lib/api";
+import { PageHeader } from "../components/PageHeader";
+import { Skeleton } from "../components/Skeleton";
 
 type Tone = "neutral" | "good" | "warn" | "bad";
 
@@ -28,12 +30,12 @@ function formatTimestamp(value: string | null) {
   });
 }
 
-function olderThan24h(value: string | null) {
+export function olderThan24h(value: string | null) {
   if (!value) return false;
   return Date.now() - new Date(value).getTime() > 24 * 60 * 60 * 1000;
 }
 
-function scoreTone(score: number | null): Tone {
+export function scoreTone(score: number | null): Tone {
   if (score === null) return "neutral";
   if (score >= 80) return "good";
   if (score >= 50) return "warn";
@@ -106,12 +108,7 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          What needs your attention across the network.
-        </p>
-      </header>
+      <PageHeader title="Dashboard" description="What needs your attention across the network." />
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
         {statusCards(attention.data?.status).map((card) => (
@@ -130,7 +127,11 @@ export function Dashboard() {
         action={attention.data ? <span className="text-sm text-slate-500 dark:text-slate-400">{itemCountLabel(items.length)}</span> : null}
       >
         {attention.isLoading ? (
-          <p className="text-sm text-slate-600 dark:text-slate-400">Loading…</p>
+          <div className="space-y-3" role="status" aria-label="Loading">
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+          </div>
         ) : attention.error ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
             Dashboard attention feed failed: {attention.error.message}

@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.1] - 15/11/2026
+
+### Fixed
+
+- The `mcp` container crashed on start with `No module named 'mcp.server.fastmcp'`.
+  The image installed `mcp` 2.x, which renamed `FastMCP`; the SDK is now pinned
+  to `<2` in `services/mcp/pyproject.toml` and the Dockerfile.
+
+### Upgrade notes
+
+- No schema or API changes. Set `MCP_AUTH_TOKEN` in `.env` if you have not
+  already, then pull the new images and restart
+  (`docker compose pull && docker compose up -d`).
+
 ## [2.6.0] - 15/11/2026
 
 ### Added

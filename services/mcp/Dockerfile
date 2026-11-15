@@ -5,7 +5,7 @@ RUN apk add --no-cache build-base libffi-dev
 
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/python -m pip install --no-cache-dir --upgrade pip \
-    && /opt/venv/bin/python -m pip install --no-cache-dir "mcp[cli]>=1.0" "httpx>=0.27" "pydantic>=2.0" \
+    && /opt/venv/bin/python -m pip install --no-cache-dir "mcp[cli]>=1.0,<2" "httpx>=0.27" "pydantic>=2.0" \
     && /opt/venv/bin/python -m pip uninstall -y pip
 
 FROM python:3.12-alpine AS runtime

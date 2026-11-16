@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.2] - 15/11/2026
+
+### Fixed
+
+- The CVE collector failed with `value too long for type character varying(512)`
+  on advisories that affect many Ubiquiti models, aborting the whole NVD poll so
+  later CVEs were never stored. `cve_alerts.affected_cpe` is now `TEXT`
+  (migration `015_widen_cve_affected_cpe`).
+
+### Upgrade notes
+
+- Includes one Alembic migration, applied automatically when the API starts. Pull
+  the new images and restart (`docker compose pull && docker compose up -d`).
+
 ## [2.6.1] - 15/11/2026
 
 ### Fixed

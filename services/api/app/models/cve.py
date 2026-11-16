@@ -32,7 +32,7 @@ class CVEAlert(Base):
     cvss_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source: Mapped[str] = mapped_column(String(32), default="nvd")
-    affected_cpe: Mapped[str | None] = mapped_column(String(512))
+    affected_cpe: Mapped[str | None] = mapped_column(Text)
     ubiquiti_bulletin_url: Mapped[str | None] = mapped_column(String(512))
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     raw_json: Mapped[str | None] = mapped_column(Text)
